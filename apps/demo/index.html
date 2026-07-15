@@ -37,8 +37,9 @@
     <whats-my-model task="code" preference="balanced"></whats-my-model>
 
     <p style="margin-top: 14px; display: flex; gap: 8px">
+      <button id="snapshot">Bundled snapshot</button>
+      <button id="hf">Live Hugging Face →</button>
       <button id="seed">Seed catalog</button>
-      <button id="hf">Load live models from Hugging Face →</button>
     </p>
 
     <p class="lede" style="margin-top: 20px">Last <code>wmm-select</code> event:</p>
@@ -47,7 +48,7 @@
     <script type="module">
       import "@whats-my-model/widget";
       import { manualHardwareProvider, seedCatalogProvider } from "@whats-my-model/core";
-      import { huggingFaceCatalogProvider } from "@whats-my-model/catalog-huggingface";
+      import { huggingFaceCatalogProvider, snapshotCatalogProvider } from "@whats-my-model/catalog-huggingface";
 
       const GB = 1024 * 1024 * 1024;
       const el = document.querySelector("whats-my-model");
@@ -61,6 +62,7 @@
           gpu: { name: "GeForce RTX 4080", total: 16 * GB },
           ram: { total: 32 * GB },
         }),
+        catalogProvider: snapshotCatalogProvider(), // real HF data, bundled — instant + offline
       });
 
       el.addEventListener("wmm-select", (e) => {
@@ -74,6 +76,9 @@
       });
       document.getElementById("seed").addEventListener("click", () => {
         el.configure({ catalogProvider: seedCatalogProvider() });
+      });
+      document.getElementById("snapshot").addEventListener("click", () => {
+        el.configure({ catalogProvider: snapshotCatalogProvider() });
       });
     </script>
   </body>
