@@ -51,4 +51,28 @@ test("buildVariants dedupes single-vs-sharded, drops full precision, infers meta
   assert.equal(q4.params, 7);
   assert.equal(q4.task, "code");
   assert.equal(q4.family, "Qwen2.5-Coder-7B-Instruct");
+  assert.deepEqual(q4.modalities, ["text"]); // no projector -> text only
+  assert.equal(q4.sidecarBytes, undefined);
+});
+
+test("mmproj is a sidecar (not a variant) and marks the repo multimodal", () => {
+  const files = [
+    { path: "llava-v1.6-vicuna-7b-q4_k_m.gguf", size: 4100000000 },
+    { path: "llava-v1.6-vicuna-7b-q8_0.gguf", size: 7200000000 },
+    { path: "mmproj-model-f16.gguf", size: 624000000 },
+  ];
+  const vs = buildVariants("cjpais/llava-v1.6-vicuna-7b-gguf", files);
+  assert.deepEqual(vs.map((v) => v.quant).sort(), ["Q4_K_M", "Q8_0"]); // mmproj excluded as a variant
+  for (const v of vs) {
+    assert.deepEqual(v.modalities, ["text", "image"]);
+    assert.equal(v.sidecarBytes, 624000000);
+  }
+});
+
+test("incomplete shard sets are skipped (won't load)", () => {
+  const files = [
+    { path: "big-q4_k_m-00001-of-00003.gguf", size: 1000 },
+    { path: "big-q4_k_m-00002-of-00003.gguf", size: 1000 }, // 00003 missing
+  ];
+  assert.equal(buildVariants("owner/big-GGUF", files).length, 0);
 });

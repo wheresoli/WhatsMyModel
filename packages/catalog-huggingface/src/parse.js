@@ -27,6 +27,18 @@ export function shardBase(path) {
   return String(path).replace(SHARD_RE, "$3");
 }
 
+// A multimodal projector — loads alongside the weights, not a variant of its own.
+export function isMmproj(path) {
+  const file = String(path).split(/[\\/]/).pop() || "";
+  return /(?:^|[-_.])(?:mm-?proj|projector)/i.test(file);
+}
+
+// The "of N" shard count declared in a shard filename (null if not sharded).
+function shardTotal(path) {
+  const m = String(path).match(SHARD_RE);
+  return m ? parseInt(m[2], 10) : null;
+}
+
 // Parameter count in billions from a name ("...-7B-..." -> 7), or null. The
 // negative lookahead avoids matching "4bit".
 export function parseParams(str) {
@@ -58,10 +70,17 @@ export function buildVariants(repoId, files) {
   const family = cleanFamily(repoId);
   const params = parseParams(repoId);
   const task = inferTask(repoId);
+  const list = (Array.isArray(files) ? files : []).filter((f) => f && /\.gguf$/i.test(f.path || ""));
+
+  // A multimodal projector (mmproj) loads alongside the weights — a sidecar, not a
+  // variant. Take the largest as the projector footprint; its presence means the
+  // repo is vision-capable.
+  const projectorBytes = list.filter((f) => isMmproj(f.path)).reduce((mx, f) => Math.max(mx, fileSize(f)), 0);
+  const modalities = projectorBytes > 0 ? ["text", "image"] : ["text"];
 
   const groups = new Map();
-  for (const f of Array.isArray(files) ? files : []) {
-    if (!f || !/\.gguf$/i.test(f.path || "")) continue;
+  for (const f of list) {
+    if (isMmproj(f.path)) continue;
     const key = shardBase(f.path);
     if (!groups.has(key)) groups.set(key, { singles: [], shards: [] });
     (isShard(f.path) ? groups.get(key).shards : groups.get(key).singles).push(f);
@@ -71,9 +90,15 @@ export function buildVariants(repoId, files) {
   for (const [key, g] of groups) {
     const quant = parseQuant(key);
     if (!quant || FULL_PRECISION.test(quant)) continue;
-    const sizeBytes = g.singles.length
-      ? Math.max(...g.singles.map(fileSize))
-      : g.shards.reduce((s, f) => s + fileSize(f), 0);
+    let sizeBytes;
+    if (g.singles.length) {
+      sizeBytes = Math.max(...g.singles.map(fileSize));
+    } else {
+      // Sharded only: the whole set must be present or it won't load.
+      const total = shardTotal(g.shards[0] && g.shards[0].path);
+      if (total && g.shards.length < total) continue;
+      sizeBytes = g.shards.reduce((s, f) => s + fileSize(f), 0);
+    }
     if (!sizeBytes) continue;
     variants.push({
       id: `hf:${repoId}:${quant}`,
@@ -83,6 +108,8 @@ export function buildVariants(repoId, files) {
       ...(params != null ? { params } : {}),
       quant,
       sizeBytes,
+      ...(projectorBytes > 0 ? { sidecarBytes: projectorBytes } : {}),
+      modalities,
       source: { provider: "huggingface", repo: repoId, path: key },
     });
   }

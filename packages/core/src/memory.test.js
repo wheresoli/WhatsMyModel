@@ -43,3 +43,12 @@ test("estimateFit: defaults context and reports it", () => {
   assert.equal(fit.contextLength, DEFAULT_CONTEXT);
   assert.equal(fit.tier, "ok");
 });
+
+test("estimateFit: a multimodal projector sidecar adds to the footprint", () => {
+  const res = { gpu: { total: 12 * GB } };
+  const base = { sizeBytes: 6.5 * GB, params: 7, contextLength: 4096 };
+  assert.equal(estimateFit(base, res).tier, "ok"); // ~7.8 GB < 9.6
+  const withProj = estimateFit({ ...base, sidecarBytes: 3 * GB }, res);
+  assert.equal(withProj.tier, "tight"); // ~10.8 GB in (9.6, 12]
+  assert.equal(withProj.breakdown.sidecar, 3 * GB);
+});
