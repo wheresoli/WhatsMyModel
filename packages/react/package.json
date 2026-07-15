@@ -4,18 +4,25 @@
   "description": "Thin React wrapper for the <whats-my-model> Web Component — props in, wmm-select out.",
   "type": "module",
   "license": "Apache-2.0",
+  "keywords": ["gguf", "llm", "react", "web-component"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wheresoli/WhatsMyModel.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/wheresoli/WhatsMyModel#readme",
+  "bugs": { "url": "https://github.com/wheresoli/WhatsMyModel/issues" },
   "main": "./src/index.js",
   "exports": {
     ".": "./src/index.js"
   },
-  "files": [
-    "src"
-  ],
+  "files": ["src"],
+  "publishConfig": { "access": "public" },
   "scripts": {
     "test": "node --test src/*.test.js"
   },
   "dependencies": {
-    "@whats-my-model/widget": "*"
+    "@whats-my-model/widget": "^0.1.0"
   },
   "peerDependencies": {
     "react": ">=18"

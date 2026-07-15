@@ -1,0 +1,41 @@
+name: Publish to npm
+
+# Publishes all packages to npm when you push a version tag, e.g.:
+#   git tag v0.1.0 && git push origin v0.1.0
+# Requires an NPM_TOKEN repo secret (Settings > Secrets and variables > Actions)
+# with publish rights to the @whats-my-model scope.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: Test
+        run: node --test packages/*/src/*.test.js
+      - name: Publish in dependency order
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          for pkg in core catalog-huggingface widget react; do
+            echo "::group::@whats-my-model/$pkg"
+            name="@whats-my-model/$pkg"
+            version="$(node -e "console.log(JSON.parse(require('fs').readFileSync('packages/$pkg/package.json','utf8')).version)")"
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "skipped $name@$version (already published)"
+            else
+              npm publish "packages/$pkg" --access public
+            fi
+            echo "::endgroup::"
+          done
