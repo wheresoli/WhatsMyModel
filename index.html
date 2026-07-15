@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>What's My Model? — which local LLM fits your machine</title>
+    <meta name="description" content="A portable, backend-free widget that tells you which local (GGUF) models actually fit your GPU/RAM." />
+
+    <!-- Buildless ESM. Relative paths so it works at the repo-root locally AND under
+         the /WhatsMyModel/ base path on GitHub Pages. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@whats-my-model/core": "./packages/core/src/index.js",
+          "@whats-my-model/widget": "./packages/widget/src/index.js",
+          "@whats-my-model/catalog-huggingface": "./packages/catalog-huggingface/src/index.js",
+          "@whats-my-model/catalog-huggingface/snapshot": "./packages/catalog-huggingface/src/snapshot.js"
+        }
+      }
+    </script>
+
+    <style>
+      :root { color-scheme: light dark; --fg: #14171a; --muted: #5b6470; --bg: #ffffff; --line: #e6e8eb; --accent: #2563eb; }
+      @media (prefers-color-scheme: dark) {
+        :root { --fg: #e6e8eb; --muted: #98a2b0; --bg: #0d0f12; --line: #232830; --accent: #6ea8fe; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.55; }
+      main { max-width: 720px; margin: 0 auto; padding: 56px 20px 80px; }
+      header p { color: var(--muted); }
+      h1 { font-size: clamp(28px, 5vw, 40px); margin: 0 0 6px; letter-spacing: -0.02em; }
+      .tagline { font-size: 18px; margin: 0 0 28px; }
+      .widget-wrap { margin: 8px 0 12px; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+      button { font: inherit; font-size: 13px; color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+      button:hover { border-color: var(--accent); color: var(--accent); }
+      .out { font-size: 13px; color: var(--muted); min-height: 1.4em; }
+      .out code { background: color-mix(in srgb, var(--muted) 18%, transparent); padding: 1px 6px; border-radius: 4px; }
+      section { margin-top: 40px; }
+      h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; }
+      .how { display: grid; gap: 12px; }
+      .how div { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+      .how strong { display: block; margin-bottom: 2px; }
+      .how span { color: var(--muted); font-size: 14px; }
+      a { color: var(--accent); }
+      footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 16px; }
+      code.i { background: color-mix(in srgb, var(--muted) 18%, transparent); padding: 1px 6px; border-radius: 4px; font-size: 0.92em; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>What's My Model?</h1>
+        <p class="tagline">Which local (GGUF) model actually fits your machine — no backend, drop into any page.</p>
+      </header>
+
+      <div class="widget-wrap">
+        <whats-my-model task="code" preference="balanced" target-context="8192"></whats-my-model>
+      </div>
+      <div class="controls">
+        <button id="snapshot">Bundled snapshot</button>
+        <button id="live">Refresh from Hugging Face (live)</button>
+      </div>
+      <p class="out" id="out">Pick a model to see it here.</p>
+      <p style="color: var(--muted); font-size: 13px">
+        Detection is seeded to a 16&nbsp;GB GPU for the demo — edit the VRAM/RAM fields for your machine.
+        Browsers can't read VRAM, so a real host injects an exact probe.
+      </p>
+
+      <section>
+        <h2>How it works</h2>
+        <div class="how">
+          <div><strong>Pure frontend</strong><span>The fit engine + widget are dependency-free JavaScript. It carries no server — you drop <code class="i">&lt;whats-my-model&gt;</code> into any page.</span></div>
+          <div><strong>Hosts inject hardware</strong><span>A <code class="i">HardwareProvider</code> supplies <code class="i">{ gpu, ram }</code>: a browser best-effort default, manual entry, or (on desktop) an exact native probe.</span></div>
+          <div><strong>Real catalog</strong><span>A bundled Hugging Face snapshot renders instantly; a live provider folds in fresh results, cached in IndexedDB.</span></div>
+          <div><strong>Honest fit</strong><span>Weights + KV cache (context-aware) + buffers vs your VRAM — so "32K fits, 128K doesn't", and quantizing the KV cache changes the answer.</span></div>
+        </div>
+      </section>
+
+      <footer>
+        <a href="https://github.com/wheresoli/WhatsMyModel">GitHub repo</a>
+        <a href="https://github.com/wheresoli/WhatsMyModel/tree/main/packages">Packages</a>
+        <a href="https://github.com/wheresoli/WhatsMyModel/tree/main/apps/demo">Vanilla demo</a>
+        <a href="https://github.com/wheresoli/WhatsMyModel/tree/main/examples/react">React example</a>
+      </footer>
+    </main>
+
+    <script type="module">
+      import "@whats-my-model/widget";
+      import { manualHardwareProvider } from "@whats-my-model/core";
+      import {
+        huggingFaceCatalogProvider,
+        hybridCatalogProvider,
+        cachedCatalogProvider,
+      } from "@whats-my-model/catalog-huggingface";
+      import { snapshotCatalogProvider } from "@whats-my-model/catalog-huggingface/snapshot";
+
+      const GB = 2 ** 30;
+      const el = document.querySelector("whats-my-model");
+
+      el.configure({
+        hardwareProvider: manualHardwareProvider({ gpu: { name: "GeForce RTX 4080", total: 16 * GB }, ram: { total: 32 * GB } }),
+        catalogProvider: snapshotCatalogProvider(),
+      });
+
+      el.addEventListener("wmm-select", (e) => {
+        const v = e.detail.variant;
+        document.getElementById("out").innerHTML =
+          `Selected: <code>${v.name} · ${v.quant} · ${(v.sizeBytes / GB).toFixed(1)} GB (${v.viability.tier})</code>`;
+      });
+
+      document.getElementById("snapshot").addEventListener("click", () => {
+        el.configure({ catalogProvider: snapshotCatalogProvider() });
+      });
+      // Fold live Hugging Face results into the snapshot (cached), resilient if HF is down.
+      document.getElementById("live").addEventListener("click", () => {
+        el.configure({
+          catalogProvider: hybridCatalogProvider(
+            snapshotCatalogProvider(),
+            cachedCatalogProvider(huggingFaceCatalogProvider({ task: "code", limit: 10 })),
+          ),
+        });
+      });
+    </script>
+  </body>
+</html>
