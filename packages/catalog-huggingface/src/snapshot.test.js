@@ -18,3 +18,14 @@ test("snapshotCatalogProvider lists the snapshot", async () => {
   const list = await snapshotCatalogProvider().list();
   assert.equal(list.length, SNAPSHOT.length);
 });
+
+test("each list() is a deep copy — mutating a result can't corrupt the snapshot", async () => {
+  const p = snapshotCatalogProvider();
+  const a = await p.list();
+  a[0].sizeBytes = -1;
+  a[0].modalities.push("mutated");
+  const b = await p.list();
+  assert.notEqual(b[0].sizeBytes, -1, "sizeBytes not leaked");
+  assert.equal(b[0].modalities.includes("mutated"), false, "nested array not leaked");
+  assert.ok(SNAPSHOT[0].sizeBytes > 0, "module-level SNAPSHOT intact");
+});

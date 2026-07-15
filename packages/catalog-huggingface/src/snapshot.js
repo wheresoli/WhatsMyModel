@@ -6,5 +6,13 @@ import { SNAPSHOT, GENERATED_AT } from "./snapshot-data.js";
 export { SNAPSHOT, GENERATED_AT };
 
 export function snapshotCatalogProvider() {
-  return { list: async () => (globalThis.structuredClone ? structuredClone(SNAPSHOT) : JSON.parse(JSON.stringify(SNAPSHOT))) };
+  // Deep-clone per call so a caller mutating a variant can't corrupt the module-level
+  // SNAPSHOT. Qualify globalThis.structuredClone (a bare `structuredClone` can throw
+  // ReferenceError where it's only present as a global property); JSON is the fallback.
+  return {
+    list: async () =>
+      typeof globalThis.structuredClone === "function"
+        ? globalThis.structuredClone(SNAPSHOT)
+        : JSON.parse(JSON.stringify(SNAPSHOT)),
+  };
 }

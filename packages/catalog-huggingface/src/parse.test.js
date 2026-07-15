@@ -104,3 +104,13 @@ test("a complete, consistent shard set is accepted (sizes summed)", () => {
   assert.equal(vs.length, 1);
   assert.equal(vs[0].sizeBytes, 1500);
 });
+
+test("a full 1..N set plus a duplicate is rejected (no inflated size)", () => {
+  // The whole set is present, but a duplicate would double-count in the size sum.
+  const files = [
+    { path: "big-q4_k_m-00001-of-00002.gguf", size: 1000 },
+    { path: "big-q4_k_m-00002-of-00002.gguf", size: 1000 },
+    { path: "big-q4_k_m-00002-of-00002.gguf", size: 1000 }, // duplicate of shard 2
+  ];
+  assert.equal(buildVariants("owner/big-GGUF", files).length, 0);
+});
