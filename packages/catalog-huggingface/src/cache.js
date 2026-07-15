@@ -3,7 +3,8 @@
 // the network. Where IndexedDB is unavailable (Node, or if you pass `store: null`)
 // it degrades to a straight pass-through. Inject `store`/`now` for tests.
 const DAY_MS = 24 * 60 * 60 * 1000;
-const clone = (data) => structuredClone(data);
+const clone = (data) =>
+  typeof globalThis.structuredClone === "function" ? globalThis.structuredClone(data) : JSON.parse(JSON.stringify(data));
 
 export function cachedCatalogProvider(inner, opts = {}) {
   const { key = "wmm:catalog", ttlMs = DAY_MS, now = () => Date.now() } = opts;
