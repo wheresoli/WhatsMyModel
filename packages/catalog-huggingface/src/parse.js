@@ -52,13 +52,16 @@ function shardIndex(path) {
 function isCompleteShardSet(shards) {
   const total = shardTotal(shards[0] && shards[0].path);
   if (!total) return false;
+  // Reject extra/missing entries up front so duplicates can't slip through.
+  if (shards.length !== total) return false;
   const seen = new Set();
   for (const f of shards) {
     if (shardTotal(f.path) !== total) return false;
-    seen.add(shardIndex(f.path));
+    const idx = shardIndex(f.path);
+    if (!(idx > 0) || idx > total) return false;
+    if (seen.has(idx)) return false;
+    seen.add(idx);
   }
-  if (seen.size !== total) return false;
-  for (let i = 1; i <= total; i++) if (!seen.has(i)) return false;
   return true;
 }
 
