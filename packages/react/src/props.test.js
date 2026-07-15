@@ -16,6 +16,13 @@ test("routes provider/workload objects to config and pulls out onSelect", () => 
   assert.equal(os, onSelect);
 });
 
+test("routes a static catalog array into config, not rest", () => {
+  const catalog = [{ id: "a" }];
+  const { config, rest } = splitProps({ catalog });
+  assert.equal(config.catalog, catalog);
+  assert.equal("catalog" in rest, false);
+});
+
 test("passes unknown props (className/style) through as rest", () => {
   const { rest } = splitProps({ className: "x", style: { color: "red" }, task: "chat" });
   assert.deepEqual(rest, { className: "x", style: { color: "red" } });
