@@ -71,7 +71,7 @@ export function estimateFit(model, resources) {
   const need = sizeBytes + sidecar + kv + compute + margin;
   // A non-finite need (e.g. an invalid cacheBits made kv NaN) must not fall through
   // the comparisons below as "ok" — NaN > x is always false. Report it honestly.
-if (!Number.isFinite(need)) return { tier: "unknown", sizeBytes, need: null, ceiling, target, contextLength, breakdown: { weights: sizeBytes, sidecar, kv, compute, margin } };
+  if (!Number.isFinite(need)) return { tier: "unknown", sizeBytes, need: null, ceiling, target, contextLength, breakdown: { weights: sizeBytes, sidecar, kv, compute, margin } };
 
   let tier;
   if (need > ceiling) tier = "over";
