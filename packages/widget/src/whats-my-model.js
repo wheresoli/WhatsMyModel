@@ -23,10 +23,11 @@ const DEFAULT_CACHE = "fp16";
 // Message from an unknown throw shape (string, plain object, undefined) without
 // assuming `.message` exists.
 const errMessage = (e) => (e && typeof e === "object" && "message" in e ? e.message : String(e));
-// Parse a context attribute to a positive int, or null if it isn't one.
 const parseContext = (value) => {
-  const n = parseInt(value, 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const s = String(value).trim();
+  if (!/^\d+$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
 };
 const TIER_LABEL = { ok: "Fits", tight: "Tight", over: "Won't fit", unknown: "?" };
 
