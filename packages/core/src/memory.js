@@ -32,9 +32,9 @@ export function kvCacheBytes({ params, contextLength = DEFAULT_CONTEXT, sequence
   const ctx = Number(contextLength);
   const bits = Number(cacheBits);
   const seq = Number(sequences);
-  if (!Number.isFinite(ctx) || ctx <= 0 || !Number.isFinite(bits) || bits <= 0) return NaN;
+  if (!Number.isFinite(ctx) || ctx <= 0 || !Number.isFinite(bits) || bits <= 0 || !Number.isFinite(seq) || seq <= 0) return NaN;
   const bytesPerElem = bits / 8;
-  return 2 * a.nLayers * a.nKvHeads * a.headDim * bytesPerElem * ctx * Math.max(1, seq > 0 ? seq : 1);
+  return 2 * a.nLayers * a.nKvHeads * a.headDim * bytesPerElem * ctx * seq;
 }
 
 // Estimate whether `model` fits `resources`, accounting for context. `model`:
