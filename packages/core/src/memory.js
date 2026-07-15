@@ -55,7 +55,7 @@ export function estimateFit(model, resources) {
   // finite number; anything invalid falls back to the default rather than poisoning
   // the KV term with NaN.
   const rawContext = Number(model.contextLength);
-  const contextLength = rawContext > 0 ? rawContext : DEFAULT_CONTEXT;
+  const contextLength = Number.isFinite(rawContext) && rawContext > 0 ? rawContext : DEFAULT_CONTEXT;
   const sidecar = Number(model.sidecarBytes) || 0; // e.g. a multimodal projector (mmproj)
   const kv = kvCacheBytes({
     params: model.params,
