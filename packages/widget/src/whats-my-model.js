@@ -18,6 +18,16 @@ const TASKS = ["code", "chat", "reasoning"];
 const PREFS = ["fastest", "balanced", "highest-quality"];
 const CONTEXTS = [[4096, "4K"], [8192, "8K"], [16384, "16K"], [32768, "32K"], [65536, "64K"], [131072, "128K"]];
 const CACHES = [["fp16", "fp16"], ["q8_0", "q8"], ["q4_0", "q4"]];
+const CACHE_TYPES = new Set(CACHES.map(([v]) => v));
+const DEFAULT_CACHE = "fp16";
+// Message from an unknown throw shape (string, plain object, undefined) without
+// assuming `.message` exists.
+const errMessage = (e) => (e && typeof e === "object" && "message" in e ? e.message : String(e));
+// Parse a context attribute to a positive int, or null if it isn't one.
+const parseContext = (value) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
 const TIER_LABEL = { ok: "Fits", tight: "Tight", over: "Won't fit", unknown: "?" };
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -92,8 +102,11 @@ export class WhatsMyModel extends HTMLElement {
   attributeChangedCallback(name, _old, value) {
     if (name === "task" && value) this.#workload.task = value;
     if (name === "preference" && value) this.#workload.preference = value;
-    if (name === "target-context" && value) this.#workload.targetContext = parseInt(value, 10);
-    if (name === "cache-type" && value) this.#workload.cacheType = value;
+    if (name === "target-context" && value) {
+      const ctx = parseContext(value);
+      if (ctx != null) this.#workload.targetContext = ctx;
+    }
+    if (name === "cache-type" && value && CACHE_TYPES.has(value)) this.#workload.cacheType = value;
     if (this.#els) {
       this.#syncControls();
       this.#recompute();
@@ -107,8 +120,11 @@ export class WhatsMyModel extends HTMLElement {
     const ct = this.getAttribute("cache-type");
     if (t) this.#workload.task = t;
     if (p) this.#workload.preference = p;
-    if (tc) this.#workload.targetContext = parseInt(tc, 10);
-    if (ct) this.#workload.cacheType = ct;
+    if (tc) {
+      const ctx = parseContext(tc);
+      if (ctx != null) this.#workload.targetContext = ctx;
+    }
+    if (ct && CACHE_TYPES.has(ct)) this.#workload.cacheType = ct;
     this.#build();
     this.#detect();
   }
@@ -145,7 +161,7 @@ export class WhatsMyModel extends HTMLElement {
       list = await this.#catalogProvider.list();
     } catch (e) {
       if (seq === this.#loadSeq) {
-        this.#els.results.innerHTML = `<div class="empty">Couldn't load catalog: ${esc(e.message)}</div>`;
+        this.#els.results.innerHTML = `<div class="empty">Couldn't load catalog: ${esc(errMessage(e))}</div>`;
       }
       return;
     }
@@ -264,6 +280,9 @@ export class WhatsMyModel extends HTMLElement {
 
   #syncControls() {
     if (!this.#els) return;
+    // Normalize an out-of-set cacheType (e.g. injected via configure({workload}))
+    // back to the default so the <select> and #workload can't desync.
+    if (!CACHE_TYPES.has(this.#workload.cacheType)) this.#workload.cacheType = DEFAULT_CACHE;
     this.#els.task.value = this.#workload.task;
     this.#els.pref.value = this.#workload.preference;
     this.#els.ctx.value = String(this.#workload.targetContext);
