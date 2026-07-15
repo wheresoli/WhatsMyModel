@@ -35,7 +35,10 @@ jobs:
             if npm view "$name@$version" version >/dev/null 2>&1; then
               echo "skipped $name@$version (already published)"
             else
-              npm publish "packages/$pkg" --access public
+              # ./ prefix: force npm to treat this as a local dir, not an
+              # "owner/repo" GitHub shorthand (npm publish "packages/core"
+              # tries to git-clone github.com/packages/core otherwise).
+              npm publish "./packages/$pkg" --access public
             fi
             echo "::endgroup::"
           done
