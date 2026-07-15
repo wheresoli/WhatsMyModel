@@ -23,12 +23,18 @@ function approxArch(paramsB) {
 
 // KV cache bytes = 2 (K+V) × layers × kvHeads × headDim × bytesPerElem × context ×
 // sequences. Returns 0 when params/arch are unknown (caller then relies on the
-// weights + buffers terms only).
+// weights + buffers terms only), or NaN when a supplied numeric input is invalid
+// (non-finite / non-positive) so estimateFit can surface it as "unknown" rather
+// than let a NaN comparison silently read as "ok".
 export function kvCacheBytes({ params, contextLength = DEFAULT_CONTEXT, sequences = 1, cacheBits = 16, arch } = {}) {
   const a = arch || approxArch(params);
   if (!a) return 0;
-  const bytesPerElem = cacheBits / 8;
-  return 2 * a.nLayers * a.nKvHeads * a.headDim * bytesPerElem * contextLength * Math.max(1, sequences);
+  const ctx = Number(contextLength);
+  const bits = Number(cacheBits);
+  const seq = Number(sequences);
+  if (!(ctx > 0) || !(bits > 0)) return NaN;
+  const bytesPerElem = bits / 8;
+  return 2 * a.nLayers * a.nKvHeads * a.headDim * bytesPerElem * ctx * Math.max(1, seq > 0 ? seq : 1);
 }
 
 // Estimate whether `model` fits `resources`, accounting for context. `model`:
@@ -45,7 +51,11 @@ export function estimateFit(model, resources) {
   const target = usingGpu ? "VRAM" : "RAM";
   if (!ceiling) return { tier: "unknown", sizeBytes, target };
 
-  const contextLength = model.contextLength ?? DEFAULT_CONTEXT;
+  // Coerce a possibly-stringy/garbage contextLength ("128K", "foo") to a positive
+  // finite number; anything invalid falls back to the default rather than poisoning
+  // the KV term with NaN.
+  const rawContext = Number(model.contextLength);
+  const contextLength = rawContext > 0 ? rawContext : DEFAULT_CONTEXT;
   const sidecar = Number(model.sidecarBytes) || 0; // e.g. a multimodal projector (mmproj)
   const kv = kvCacheBytes({
     params: model.params,
@@ -59,6 +69,9 @@ export function estimateFit(model, resources) {
   // Headroom for the OS/display compositor sharing the device.
   const margin = 512 * MB;
   const need = sizeBytes + sidecar + kv + compute + margin;
+  // A non-finite need (e.g. an invalid cacheBits made kv NaN) must not fall through
+  // the comparisons below as "ok" — NaN > x is always false. Report it honestly.
+  if (!Number.isFinite(need)) return { tier: "unknown", sizeBytes, target };
 
   let tier;
   if (need > ceiling) tier = "over";

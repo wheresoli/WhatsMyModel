@@ -38,7 +38,11 @@ export function scoreVariant(variant, resources, workload = {}) {
   // Size the KV cache for the requested context, capped at the model's own max.
   const target = workload.targetContext || DEFAULT_CONTEXT;
   const contextLength = variant.contextLength ? Math.min(target, variant.contextLength) : target;
-  const cacheBits = workload.cacheBits ?? CACHE_BITS[workload.cacheType] ?? 16;
+  // Guard an explicit cacheBits: a non-finite/non-positive value (e.g. NaN from
+  // parsing user input) would propagate into the KV estimate. Fall back to the
+  // cacheType mapping, then fp16.
+  const rawBits = Number(workload.cacheBits);
+  const cacheBits = rawBits > 0 ? rawBits : CACHE_BITS[workload.cacheType] ?? 16;
   const viability = estimateFit(
     { sizeBytes: variant.sizeBytes, sidecarBytes: variant.sidecarBytes, params: variant.params, contextLength, sequences: workload.concurrentSequences, cacheBits },
     resources
@@ -47,7 +51,9 @@ export function scoreVariant(variant, resources, workload = {}) {
   const taskMatch = !workload.task || workload.task === variant.task ? 1 : 0.4;
   // Likely output quality blends model size and quant fidelity.
   const capability = 0.6 * paramQuality(variant.params) + 0.4 * quantQuality(variant.quant);
-  const speed = speedScore(variant.sizeBytes);
+  // Total bytes loaded includes a multimodal projector sidecar, so a vision variant
+  // isn't scored as "fast" as a same-size text-only one it actually loads more than.
+  const speed = speedScore((Number(variant.sizeBytes) || 0) + (Number(variant.sidecarBytes) || 0));
   // Preference is the ranking axis for fitting variants: pure quality, pure speed,
   // or the tradeoff — which naturally settles on a mid quant (Q4_K_M/Q5_K_M).
   let pref;
