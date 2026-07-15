@@ -46,6 +46,7 @@ export function estimateFit(model, resources) {
   if (!ceiling) return { tier: "unknown", sizeBytes, target };
 
   const contextLength = model.contextLength ?? DEFAULT_CONTEXT;
+  const sidecar = Number(model.sidecarBytes) || 0; // e.g. a multimodal projector (mmproj)
   const kv = kvCacheBytes({
     params: model.params,
     contextLength,
@@ -57,7 +58,7 @@ export function estimateFit(model, resources) {
   const compute = Math.min(GB, Math.max(128 * MB, sizeBytes * 0.05));
   // Headroom for the OS/display compositor sharing the device.
   const margin = 512 * MB;
-  const need = sizeBytes + kv + compute + margin;
+  const need = sizeBytes + sidecar + kv + compute + margin;
 
   let tier;
   if (need > ceiling) tier = "over";
@@ -70,6 +71,6 @@ export function estimateFit(model, resources) {
     ceiling,
     target,
     contextLength,
-    breakdown: { weights: sizeBytes, kv, compute, margin },
+    breakdown: { weights: sizeBytes, sidecar, kv, compute, margin },
   };
 }

@@ -38,7 +38,7 @@ export function scoreVariant(variant, resources, workload = {}) {
   const target = workload.targetContext || DEFAULT_CONTEXT;
   const contextLength = variant.contextLength ? Math.min(target, variant.contextLength) : target;
   const viability = estimateFit(
-    { sizeBytes: variant.sizeBytes, params: variant.params, contextLength, sequences: workload.concurrentSequences, cacheBits: workload.cacheBits },
+    { sizeBytes: variant.sizeBytes, sidecarBytes: variant.sidecarBytes, params: variant.params, contextLength, sequences: workload.concurrentSequences, cacheBits: workload.cacheBits },
     resources
   );
   const fit = TIER_SCORE[viability.tier] ?? 0;
