@@ -16,6 +16,16 @@ test("cache: first call misses (hits inner), second call is served from cache", 
   assert.equal(calls, 1);
 });
 
+test("cache: callers cannot mutate nested cached data", async () => {
+  const inner = { list: async () => [{ id: "x", modalities: ["text"], source: { provider: "huggingface" } }] };
+  const p = cachedCatalogProvider(inner, { store: fakeStore() });
+  const first = await p.list();
+  first[0].modalities.push("image");
+  first[0].source.provider = "changed";
+
+  assert.deepEqual(await p.list(), [{ id: "x", modalities: ["text"], source: { provider: "huggingface" } }]);
+});
+
 test("cache: refetches after the TTL expires", async () => {
   let calls = 0;
   const inner = { list: async () => (calls++, [{ id: "x" }]) };

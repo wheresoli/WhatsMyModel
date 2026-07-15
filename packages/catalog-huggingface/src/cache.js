@@ -3,6 +3,7 @@
 // the network. Where IndexedDB is unavailable (Node, or if you pass `store: null`)
 // it degrades to a straight pass-through. Inject `store`/`now` for tests.
 const DAY_MS = 24 * 60 * 60 * 1000;
+const clone = (data) => structuredClone(data);
 
 export function cachedCatalogProvider(inner, opts = {}) {
   const { key = "wmm:catalog", ttlMs = DAY_MS, now = () => Date.now() } = opts;
@@ -14,7 +15,7 @@ export function cachedCatalogProvider(inner, opts = {}) {
         try {
           const hit = await store.get(key);
           if (hit && Array.isArray(hit.data)) {
-            if (now() - hit.at < ttlMs) return hit.data.slice(); // fresh — copy so callers can't mutate the cache
+            if (now() - hit.at < ttlMs) return clone(hit.data); // fresh — copy so callers can't mutate the cache
             stale = hit.data;
           }
         } catch {
@@ -25,12 +26,12 @@ export function cachedCatalogProvider(inner, opts = {}) {
       try {
         data = await inner.list();
       } catch (e) {
-        if (stale) return stale.slice(); // live fetch failed but we have data — better stale than an error
+        if (stale) return clone(stale); // live fetch failed but we have data — better stale than an error
         throw e;
       }
       if (store) {
         try {
-          await store.set(key, { at: now(), data: data.slice() }); // store a copy so a caller mutating the result can't corrupt the cache
+          await store.set(key, { at: now(), data: clone(data) }); // store a copy so a caller mutating the result can't corrupt the cache
         } catch {
           /* cache write failure must never break the result */
         }
