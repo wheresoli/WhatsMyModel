@@ -1,0 +1,17 @@
+{
+  "name": "@whats-my-model/catalog-huggingface",
+  "version": "0.1.0",
+  "description": "Backend-free Hugging Face catalog provider for What's My Model? (raw fetch, no SDK).",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test src/*.test.js"
+  }
+}

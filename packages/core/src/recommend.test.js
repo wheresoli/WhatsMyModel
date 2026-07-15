@@ -53,3 +53,14 @@ test("recommend: no resources -> nothing recommended, everything is unknown (not
   assert.equal(families.length, 0);
   assert.equal(wontFit.length, 0); // unknown != over; we don't claim it won't fit
 });
+
+test("recommend: within a family, balanced picks a mid quant; prefs push to the ends", () => {
+  const mk = (quant, gb) => ({ id: "x-" + quant, family: "Fam", name: "Fam", task: "code", params: 7, quant, sizeBytes: gb * GB });
+  const catalog = [mk("Q2_K", 2.8), mk("Q4_K_M", 4.7), mk("Q6_K", 6.3), mk("Q8_0", 8.1)];
+  const res = { gpu: { total: 16 * GB } };
+  const pick = (preference) =>
+    recommend({ resources: res, workload: { task: "code", preference }, catalog }).families[0].recommended.quant;
+  assert.ok(["Q4_K_M", "Q6_K"].includes(pick("balanced")), "balanced avoids the Q2_K / Q8_0 extremes");
+  assert.equal(pick("highest-quality"), "Q8_0");
+  assert.equal(pick("fastest"), "Q2_K");
+});

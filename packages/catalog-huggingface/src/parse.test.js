@@ -1,0 +1,54 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { parseQuant, parseParams, inferTask, cleanFamily, isShard, shardBase, buildVariants } from "./parse.js";
+
+// Real filenames sampled from Qwen/Qwen2.5-Coder-7B-Instruct-GGUF.
+const FILES = [
+  { path: "qwen2.5-coder-7b-instruct-fp16-00001-of-00004.gguf", size: 3951521376 },
+  { path: "qwen2.5-coder-7b-instruct-fp16.gguf", size: 15237853184 },
+  { path: "qwen2.5-coder-7b-instruct-q2_k.gguf", size: 3015940032 },
+  { path: "qwen2.5-coder-7b-instruct-q3_k_m.gguf", size: 3808391104 },
+  { path: "qwen2.5-coder-7b-instruct-q4_k_m-00001-of-00002.gguf", size: 3993201376 },
+  { path: "qwen2.5-coder-7b-instruct-q4_k_m-00002-of-00002.gguf", size: 689872288 },
+  { path: "qwen2.5-coder-7b-instruct-q4_k_m.gguf", size: 4683073536 },
+];
+
+test("parseQuant reads the trailing quant token", () => {
+  assert.equal(parseQuant("qwen2.5-coder-7b-instruct-q4_k_m.gguf"), "Q4_K_M");
+  assert.equal(parseQuant("model-q2_k.gguf"), "Q2_K");
+  assert.equal(parseQuant("model-q4_k_m-00001-of-00002.gguf"), "Q4_K_M");
+  assert.equal(parseQuant("model-fp16.gguf"), "FP16");
+  assert.equal(parseQuant("plain.gguf"), null);
+});
+
+test("shard detection and base grouping", () => {
+  assert.equal(isShard("model-q4_k_m-00001-of-00002.gguf"), true);
+  assert.equal(isShard("model-q4_k_m.gguf"), false);
+  assert.equal(shardBase("model-q4_k_m-00001-of-00002.gguf"), "model-q4_k_m.gguf");
+});
+
+test("parseParams pulls billions, ignoring '4bit'", () => {
+  assert.equal(parseParams("Qwen2.5-Coder-7B-Instruct-GGUF"), 7);
+  assert.equal(parseParams("Llama-3.2-3B"), 3);
+  assert.equal(parseParams("something-4bit"), null);
+  assert.equal(parseParams("no-size-here"), null);
+});
+
+test("inferTask / cleanFamily", () => {
+  assert.equal(inferTask("Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"), "code");
+  assert.equal(inferTask("bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF"), "reasoning");
+  assert.equal(inferTask("meta/Llama-3.1-8B-Instruct-GGUF"), "chat");
+  assert.equal(cleanFamily("Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"), "Qwen2.5-Coder-7B-Instruct");
+});
+
+test("buildVariants dedupes single-vs-sharded, drops full precision, infers meta", () => {
+  const vs = buildVariants("Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", FILES);
+  const quants = vs.map((v) => v.quant).sort();
+  assert.deepEqual(quants, ["Q2_K", "Q3_K_M", "Q4_K_M"]); // fp16 dropped
+  const q4 = vs.find((v) => v.quant === "Q4_K_M");
+  // single file (4.68 GB), NOT single + shard-sum (~9.4 GB)
+  assert.equal(q4.sizeBytes, 4683073536);
+  assert.equal(q4.params, 7);
+  assert.equal(q4.task, "code");
+  assert.equal(q4.family, "Qwen2.5-Coder-7B-Instruct");
+});

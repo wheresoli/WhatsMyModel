@@ -6,11 +6,29 @@ import { classifyModel } from "./modelViability.js";
 import { SEED_CATALOG } from "./catalog-v1.js";
 
 const TIER_SCORE = { ok: 1, tight: 0.65, over: 0, unknown: 0.3 };
+const GB = 1024 * 1024 * 1024;
 
-// Log-normalize params against a ~32B ceiling so 7B→32B is a smooth quality
-// proxy, not a linear one (diminishing returns).
-function qualityScore(params) {
+// Parameter count -> quality proxy, log-normalized against a ~32B ceiling
+// (diminishing returns). Differentiates families.
+function paramQuality(params) {
   return Math.min(1, Math.log2((Number(params) || 1) + 1) / Math.log2(33));
+}
+
+// Quant label -> fidelity proxy. This is what differentiates variants *within* a
+// family (same params, different quant): Q4_K_M is the usual sweet spot, Q2/IQ1
+// are lossy last resorts, Q6/Q8 near-lossless. Without this, all quants of a model
+// tie and the smallest (worst) one wins the sort — recommending IQ1 for a 9B.
+const QUANT_QUALITY = { IQ1: 0.18, IQ2: 0.32, Q2: 0.38, IQ3: 0.48, Q3: 0.56, IQ4: 0.68, Q4: 0.76, Q5: 0.86, Q6: 0.93, Q8: 0.98, FP16: 1, F16: 1, BF16: 1, F32: 1 };
+function quantQuality(quant) {
+  const m = String(quant || "").toUpperCase().match(/^(IQ\d|Q\d|FP16|F16|BF16|F32)/);
+  return (m && QUANT_QUALITY[m[1]]) ?? 0.6;
+}
+
+// Smaller = faster, on a log scale over ~1.5 GB (fast) to ~40 GB (slow).
+function speedScore(sizeBytes) {
+  const gb = (Number(sizeBytes) || 0) / GB;
+  const s = 1 - (Math.log2(gb + 1) - Math.log2(1.5)) / (Math.log2(41) - Math.log2(1.5));
+  return Math.max(0, Math.min(1, s));
 }
 
 // Score one variant against the host + workload. Returns the variant plus its
@@ -18,17 +36,18 @@ function qualityScore(params) {
 export function scoreVariant(variant, resources, workload = {}) {
   const viability = classifyModel(variant.sizeBytes, resources);
   const fit = TIER_SCORE[viability.tier] ?? 0;
-  const quality = qualityScore(variant.params);
   const taskMatch = !workload.task || workload.task === variant.task ? 1 : 0.4;
-  // The quality<->speed tradeoff IS the preference axis, so it isn't double-counted
-  // against a standalone quality term: "fastest" rewards smaller models, "highest-
-  // quality" rewards bigger, "balanced" leans quality only mildly.
+  // Likely output quality blends model size and quant fidelity.
+  const capability = 0.6 * paramQuality(variant.params) + 0.4 * quantQuality(variant.quant);
+  const speed = speedScore(variant.sizeBytes);
+  // Preference is the ranking axis for fitting variants: pure quality, pure speed,
+  // or the tradeoff — which naturally settles on a mid quant (Q4_K_M/Q5_K_M).
   let pref;
-  if (workload.preference === "fastest") pref = 1 - quality;
-  else if (workload.preference === "highest-quality") pref = quality;
-  else pref = 0.5 + (quality - 0.5) * 0.5;
-  const total = 0.45 * fit + 0.2 * taskMatch + 0.35 * pref;
-  return { ...variant, viability, scores: { fit, quality, taskMatch, pref }, total };
+  if (workload.preference === "fastest") pref = speed;
+  else if (workload.preference === "highest-quality") pref = capability;
+  else pref = 0.7 * capability + 0.3 * speed; // balanced leans capability; speed breaks ties
+  const total = 0.3 * fit + 0.15 * taskMatch + 0.55 * pref;
+  return { ...variant, viability, scores: { fit, taskMatch, capability, speed, pref }, total };
 }
 
 // Rank the catalog for this machine. Returns:
