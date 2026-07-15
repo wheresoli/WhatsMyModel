@@ -38,3 +38,30 @@ test("cache: no store -> pass-through, never throws", async () => {
   await p.list();
   assert.equal(calls, 2);
 });
+
+test("cache: default store (opts.store omitted) is pass-through in Node", async () => {
+  let calls = 0;
+  const inner = { list: async () => (calls++, [{ id: "x" }]) };
+  const p = cachedCatalogProvider(inner); // defaultStore() is null where IndexedDB is unavailable
+  assert.deepEqual((await p.list()).map((v) => v.id), ["x"]);
+  await p.list();
+  assert.equal(calls, 2);
+});
+
+test("cache: serves stale data when the live refetch fails", async () => {
+  let calls = 0;
+  const inner = {
+    list: async () => {
+      calls++;
+      if (calls > 1) throw new Error("offline");
+      return [{ id: "x" }];
+    },
+  };
+  let t = 0;
+  const p = cachedCatalogProvider(inner, { store: fakeStore(), ttlMs: 100, now: () => t });
+  await p.list(); // t=0 -> populate
+  t = 500; // past TTL
+  const out = await p.list(); // expired -> live throws -> fall back to stale
+  assert.deepEqual(out.map((v) => v.id), ["x"]);
+  assert.equal(calls, 2);
+});

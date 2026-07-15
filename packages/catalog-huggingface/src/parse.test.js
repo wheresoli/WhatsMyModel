@@ -76,3 +76,31 @@ test("incomplete shard sets are skipped (won't load)", () => {
   ];
   assert.equal(buildVariants("owner/big-GGUF", files).length, 0);
 });
+
+test("duplicate shard indices don't satisfy the count (missing index still caught)", () => {
+  const files = [
+    { path: "big-q4_k_m-00001-of-00003.gguf", size: 1000 },
+    { path: "big-q4_k_m-00001-of-00003.gguf", size: 1000 }, // dup of 1, 2 and 3 missing
+    { path: "big-q4_k_m-00003-of-00003.gguf", size: 1000 },
+  ];
+  assert.equal(buildVariants("owner/big-GGUF", files).length, 0);
+});
+
+test("a mix of shard sets with different totals (same base) is rejected", () => {
+  const files = [
+    { path: "big-q4_k_m-00001-of-00002.gguf", size: 1000 },
+    { path: "big-q4_k_m-00002-of-00002.gguf", size: 1000 }, // complete -of-00002 set...
+    { path: "big-q4_k_m-00003-of-00003.gguf", size: 1000 }, // ...contaminated by a stray -of-00003
+  ];
+  assert.equal(buildVariants("owner/big-GGUF", files).length, 0);
+});
+
+test("a complete, consistent shard set is accepted (sizes summed)", () => {
+  const files = [
+    { path: "big-q4_k_m-00001-of-00002.gguf", size: 1000 },
+    { path: "big-q4_k_m-00002-of-00002.gguf", size: 500 },
+  ];
+  const vs = buildVariants("owner/big-GGUF", files);
+  assert.equal(vs.length, 1);
+  assert.equal(vs[0].sizeBytes, 1500);
+});
