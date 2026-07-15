@@ -33,7 +33,9 @@ for (const name of readdirSync(pkgsDir)) {
   if (after !== before) {
     writeFileSync(file, after);
     updated++;
+    console.log(`${name}: version -> ${version}`);
+  } else {
+    console.log(`${name}: unchanged`);
   }
-  console.log(`${name}: version -> ${version}`);
 }
 console.log(`Updated ${updated} package.json file(s) to ${version}.`);
