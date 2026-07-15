@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>What's My Model? — demo</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        max-width: 640px; margin: 40px auto; padding: 0 20px; line-height: 1.5;
+      }
+      h1 { font-size: 22px; margin-bottom: 4px; }
+      p.lede { color: #6b7280; margin-top: 0; }
+      pre#out { background: rgba(127,127,127,.12); padding: 8px 12px; border-radius: 8px; font-size: 13px; min-height: 1em; }
+      code { background: rgba(127,127,127,.15); padding: 1px 5px; border-radius: 4px; }
+    </style>
+
+    <!-- Buildless ESM: map the bare package specifiers to the local source. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@whats-my-model/core": "/packages/core/src/index.js",
+          "@whats-my-model/widget": "/packages/widget/src/index.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <h1>What's My Model?</h1>
+    <p class="lede">
+      A single static page — no backend, no framework. The
+      <code>&lt;whats-my-model&gt;</code> element below is the whole widget.
+    </p>
+
+    <whats-my-model task="code" preference="balanced"></whats-my-model>
+
+    <p class="lede" style="margin-top: 20px">Last <code>wmm-select</code> event:</p>
+    <pre id="out">(click a model)</pre>
+
+    <script type="module">
+      import "@whats-my-model/widget";
+      import { manualHardwareProvider } from "@whats-my-model/core";
+
+      const GB = 1024 * 1024 * 1024;
+      const el = document.querySelector("whats-my-model");
+
+      // Seed a realistic desktop GPU so the demo shows a real fit spread out of
+      // the box. In a shipped app this provider would be the host's native probe
+      // (Tauri/Electron) or the browser best-effort default. The VRAM field stays
+      // editable either way.
+      el.configure({
+        hardwareProvider: manualHardwareProvider({
+          gpu: { name: "GeForce RTX 4080", total: 16 * GB },
+          ram: { total: 32 * GB },
+        }),
+      });
+
+      el.addEventListener("wmm-select", (e) => {
+        const v = e.detail.variant;
+        document.getElementById("out").textContent = `${v.name} · ${v.quant} · ${(v.sizeBytes / GB).toFixed(1)} GB (${v.viability.tier})`;
+      });
+    </script>
+  </body>
+</html>

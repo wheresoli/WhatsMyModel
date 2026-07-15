@@ -1,0 +1,17 @@
+{
+  "name": "@whats-my-model/widget",
+  "version": "0.1.0",
+  "description": "<whats-my-model> Web Component — the portable, framework-free widget over @whats-my-model/core.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "@whats-my-model/core": "*"
+  }
+}

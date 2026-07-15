@@ -1,0 +1,11 @@
+{
+  "name": "whats-my-model",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Portable engine + widget for 'which local model fits my machine?'",
+  "type": "module",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*"
+  ]
+}
