@@ -21,7 +21,8 @@
       {
         "imports": {
           "@whats-my-model/core": "/packages/core/src/index.js",
-          "@whats-my-model/widget": "/packages/widget/src/index.js"
+          "@whats-my-model/widget": "/packages/widget/src/index.js",
+          "@whats-my-model/catalog-huggingface": "/packages/catalog-huggingface/src/index.js"
         }
       }
     </script>
@@ -35,12 +36,18 @@
 
     <whats-my-model task="code" preference="balanced"></whats-my-model>
 
+    <p style="margin-top: 14px; display: flex; gap: 8px">
+      <button id="seed">Seed catalog</button>
+      <button id="hf">Load live models from Hugging Face →</button>
+    </p>
+
     <p class="lede" style="margin-top: 20px">Last <code>wmm-select</code> event:</p>
     <pre id="out">(click a model)</pre>
 
     <script type="module">
       import "@whats-my-model/widget";
-      import { manualHardwareProvider } from "@whats-my-model/core";
+      import { manualHardwareProvider, seedCatalogProvider } from "@whats-my-model/core";
+      import { huggingFaceCatalogProvider } from "@whats-my-model/catalog-huggingface";
 
       const GB = 1024 * 1024 * 1024;
       const el = document.querySelector("whats-my-model");
@@ -59,6 +66,14 @@
       el.addEventListener("wmm-select", (e) => {
         const v = e.detail.variant;
         document.getElementById("out").textContent = `${v.name} · ${v.quant} · ${(v.sizeBytes / GB).toFixed(1)} GB (${v.viability.tier})`;
+      });
+
+      // Swap the catalog source at runtime — same widget, different provider.
+      document.getElementById("hf").addEventListener("click", () => {
+        el.configure({ catalogProvider: huggingFaceCatalogProvider({ task: "code", limit: 8 }) });
+      });
+      document.getElementById("seed").addEventListener("click", () => {
+        el.configure({ catalogProvider: seedCatalogProvider() });
       });
     </script>
   </body>

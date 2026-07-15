@@ -9,6 +9,7 @@ import {
   viabilityLabel,
   viabilityColor,
   browserHardwareProvider,
+  seedCatalogProvider,
   SEED_CATALOG,
 } from "@whats-my-model/core";
 
@@ -73,6 +74,8 @@ export class WhatsMyModel extends HTMLElement {
 
   #hardwareProvider = browserHardwareProvider();
   #catalog = SEED_CATALOG;
+  #catalogProvider = seedCatalogProvider();
+  #loadSeq = 0;
   #workload = { task: "chat", preference: "balanced" };
   #vramGB = null;
   #ramGB = null;
@@ -102,15 +105,45 @@ export class WhatsMyModel extends HTMLElement {
     this.#detect();
   }
 
-  // Host seam: swap hardware detection, the catalog, or the workload.
-  configure({ hardwareProvider, catalog, workload } = {}) {
-    if (hardwareProvider) this.#hardwareProvider = hardwareProvider;
-    if (catalog) this.#catalog = catalog;
-    if (workload) this.#workload = { ...this.#workload, ...workload };
-    if (this.#els) {
-      this.#syncControls();
-      this.#detect();
+  // Host seam: swap hardware detection, the catalog (an array via `catalog`, or an
+  // async `catalogProvider` with list()), or the workload.
+  configure({ hardwareProvider, catalog, catalogProvider, workload } = {}) {
+    let reDetect = false;
+    let reLoad = false;
+    if (hardwareProvider) {
+      this.#hardwareProvider = hardwareProvider;
+      reDetect = true;
     }
+    if (workload) this.#workload = { ...this.#workload, ...workload };
+    if (catalog) this.#catalog = catalog;
+    if (catalogProvider) {
+      this.#catalogProvider = catalogProvider;
+      reLoad = true;
+    }
+    if (!this.#els) return;
+    this.#syncControls();
+    if (reDetect) this.#detect();
+    if (reLoad) this.#loadCatalog();
+    if (!reDetect && !reLoad) this.#recompute();
+  }
+
+  // Load the catalog from the async provider, guarding against overlapping loads
+  // (a newer configure() wins; a slow HF fetch can't clobber it).
+  async #loadCatalog() {
+    const seq = ++this.#loadSeq;
+    this.#els.results.innerHTML = `<div class="empty">Loading models…</div>`;
+    let list;
+    try {
+      list = await this.#catalogProvider.list();
+    } catch (e) {
+      if (seq === this.#loadSeq) {
+        this.#els.results.innerHTML = `<div class="empty">Couldn't load catalog: ${esc(e.message)}</div>`;
+      }
+      return;
+    }
+    if (seq !== this.#loadSeq) return;
+    if (Array.isArray(list) && list.length) this.#catalog = list;
+    this.#recompute();
   }
 
   async #detect() {
@@ -242,7 +275,7 @@ export class WhatsMyModel extends HTMLElement {
           <h4>${esc(f.family)}</h4>
           ${this.#row(rec, true)}
           <div class="reason">Recommended for ${esc(this.#workload.preference)} · ${esc(viabilityLabel(rec.viability))}${tightNote}</div>
-          ${f.alternatives.length ? `<div class="alts">${f.alternatives.map((v) => this.#row(v, true)).join("")}</div>` : ""}
+          ${f.alternatives.length ? `<div class="alts">${f.alternatives.slice(0, 5).map((v) => this.#row(v, true)).join("")}${f.alternatives.length > 5 ? `<div class="reason">+${f.alternatives.length - 5} more quant${f.alternatives.length - 5 > 1 ? "s" : ""}</div>` : ""}</div>` : ""}
         </div>`;
       })
       .join("");
