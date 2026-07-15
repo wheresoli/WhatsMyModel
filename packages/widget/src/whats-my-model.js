@@ -17,6 +17,7 @@ const GB = 1024 * 1024 * 1024;
 const TASKS = ["code", "chat", "reasoning"];
 const PREFS = ["fastest", "balanced", "highest-quality"];
 const CONTEXTS = [[4096, "4K"], [8192, "8K"], [16384, "16K"], [32768, "32K"], [65536, "64K"], [131072, "128K"]];
+const CACHES = [["fp16", "fp16"], ["q8_0", "q8"], ["q4_0", "q4"]];
 const TIER_LABEL = { ok: "Fits", tight: "Tight", over: "Won't fit", unknown: "?" };
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -70,14 +71,14 @@ const STYLE = `
 
 export class WhatsMyModel extends HTMLElement {
   static get observedAttributes() {
-    return ["task", "preference", "target-context"];
+    return ["task", "preference", "target-context", "cache-type"];
   }
 
   #hardwareProvider = browserHardwareProvider();
   #catalog = SEED_CATALOG;
   #catalogProvider = seedCatalogProvider();
   #loadSeq = 0;
-  #workload = { task: "chat", preference: "balanced", targetContext: 4096 };
+  #workload = { task: "chat", preference: "balanced", targetContext: 4096, cacheType: "fp16" };
   #vramGB = null;
   #ramGB = null;
   #byId = new Map();
@@ -92,6 +93,7 @@ export class WhatsMyModel extends HTMLElement {
     if (name === "task" && value) this.#workload.task = value;
     if (name === "preference" && value) this.#workload.preference = value;
     if (name === "target-context" && value) this.#workload.targetContext = parseInt(value, 10);
+    if (name === "cache-type" && value) this.#workload.cacheType = value;
     if (this.#els) {
       this.#syncControls();
       this.#recompute();
@@ -102,9 +104,11 @@ export class WhatsMyModel extends HTMLElement {
     const t = this.getAttribute("task");
     const p = this.getAttribute("preference");
     const tc = this.getAttribute("target-context");
+    const ct = this.getAttribute("cache-type");
     if (t) this.#workload.task = t;
     if (p) this.#workload.preference = p;
     if (tc) this.#workload.targetContext = parseInt(tc, 10);
+    if (ct) this.#workload.cacheType = ct;
     this.#build();
     this.#detect();
   }
@@ -190,6 +194,9 @@ export class WhatsMyModel extends HTMLElement {
         <label class="field">Context
           <select id="ctx">${CONTEXTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
         </label>
+        <label class="field">KV cache
+          <select id="cache">${CACHES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
+        </label>
         <label class="field">GPU VRAM (GB)
           <input id="vram" type="number" min="0" step="0.5" placeholder="e.g. 16" />
         </label>
@@ -201,7 +208,7 @@ export class WhatsMyModel extends HTMLElement {
       <div class="results" part="results"></div>
     `;
     const $ = (id) => this.shadowRoot.getElementById(id);
-    this.#els = { task: $("task"), pref: $("pref"), ctx: $("ctx"), vram: $("vram"), ram: $("ram"), results: this.shadowRoot.querySelector(".results") };
+    this.#els = { task: $("task"), pref: $("pref"), ctx: $("ctx"), cache: $("cache"), vram: $("vram"), ram: $("ram"), results: this.shadowRoot.querySelector(".results") };
 
     this.#els.task.addEventListener("change", (e) => {
       this.#workload.task = e.target.value;
@@ -213,6 +220,10 @@ export class WhatsMyModel extends HTMLElement {
     });
     this.#els.ctx.addEventListener("change", (e) => {
       this.#workload.targetContext = parseInt(e.target.value, 10);
+      this.#recompute();
+    });
+    this.#els.cache.addEventListener("change", (e) => {
+      this.#workload.cacheType = e.target.value;
       this.#recompute();
     });
     const onNum = (key) => (e) => {
@@ -256,6 +267,7 @@ export class WhatsMyModel extends HTMLElement {
     this.#els.task.value = this.#workload.task;
     this.#els.pref.value = this.#workload.preference;
     this.#els.ctx.value = String(this.#workload.targetContext);
+    this.#els.cache.value = this.#workload.cacheType;
     this.#els.vram.value = this.#vramGB ?? "";
     this.#els.ram.value = this.#ramGB ?? "";
   }

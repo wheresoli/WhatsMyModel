@@ -52,3 +52,16 @@ test("estimateFit: a multimodal projector sidecar adds to the footprint", () => 
   assert.equal(withProj.tier, "tight"); // ~10.8 GB in (9.6, 12]
   assert.equal(withProj.breakdown.sidecar, 3 * GB);
 });
+
+test("kvCacheBytes: quantizing the KV cache shrinks it (q8 = half of fp16)", () => {
+  const fp16 = kvCacheBytes({ params: 7, contextLength: 32768, cacheBits: 16 });
+  const q8 = kvCacheBytes({ params: 7, contextLength: 32768, cacheBits: 8 });
+  assert.equal(q8, fp16 / 2);
+});
+
+test("estimateFit: q4 KV cache lets a 7B reach 128K on 16 GB", () => {
+  const res = { gpu: { total: 16 * GB } };
+  const m = { sizeBytes: 4.7 * GB, params: 7, contextLength: 131072 };
+  assert.equal(estimateFit({ ...m, cacheBits: 16 }, res).tier, "over");
+  assert.equal(estimateFit({ ...m, cacheBits: 4 }, res).tier, "ok");
+});
