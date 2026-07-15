@@ -42,7 +42,7 @@ export function scoreVariant(variant, resources, workload = {}) {
   // parsing user input) would propagate into the KV estimate. Fall back to the
   // cacheType mapping, then fp16.
   const rawBits = Number(workload.cacheBits);
-  const cacheBits = rawBits > 0 ? rawBits : CACHE_BITS[workload.cacheType] ?? 16;
+  const cacheBits = Number.isFinite(rawBits) && rawBits > 0 ? rawBits : CACHE_BITS[workload.cacheType] ?? 16;
   const viability = estimateFit(
     { sizeBytes: variant.sizeBytes, sidecarBytes: variant.sidecarBytes, params: variant.params, contextLength, sequences: workload.concurrentSequences, cacheBits },
     resources
