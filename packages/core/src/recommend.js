@@ -6,6 +6,7 @@ import { estimateFit, DEFAULT_CONTEXT } from "./memory.js";
 import { SEED_CATALOG } from "./catalog-v1.js";
 
 const TIER_SCORE = { ok: 1, tight: 0.65, over: 0, unknown: 0.3 };
+const CACHE_BITS = { fp16: 16, q8_0: 8, q4_0: 4 };
 const GB = 1024 * 1024 * 1024;
 
 // Parameter count -> quality proxy, log-normalized against a ~32B ceiling
@@ -37,8 +38,9 @@ export function scoreVariant(variant, resources, workload = {}) {
   // Size the KV cache for the requested context, capped at the model's own max.
   const target = workload.targetContext || DEFAULT_CONTEXT;
   const contextLength = variant.contextLength ? Math.min(target, variant.contextLength) : target;
+  const cacheBits = workload.cacheBits ?? CACHE_BITS[workload.cacheType] ?? 16;
   const viability = estimateFit(
-    { sizeBytes: variant.sizeBytes, sidecarBytes: variant.sidecarBytes, params: variant.params, contextLength, sequences: workload.concurrentSequences, cacheBits: workload.cacheBits },
+    { sizeBytes: variant.sizeBytes, sidecarBytes: variant.sidecarBytes, params: variant.params, contextLength, sequences: workload.concurrentSequences, cacheBits },
     resources
   );
   const fit = TIER_SCORE[viability.tier] ?? 0;

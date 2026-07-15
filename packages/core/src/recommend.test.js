@@ -73,3 +73,12 @@ test("recommend: raising target context shrinks what fits (KV cache grows)", () 
   };
   assert.ok(count(131072) < count(4096), "128K context fits fewer variants than 4K");
 });
+
+test("recommend: q4_0 KV cache fits more at 128K than fp16", () => {
+  const res = { gpu: { total: 16 * GB } };
+  const count = (cacheType) => {
+    const r = recommend({ resources: res, workload: { task: "code", targetContext: 131072, cacheType } });
+    return r.families.reduce((n, f) => n + 1 + f.alternatives.length, 0);
+  };
+  assert.ok(count("q4_0") > count("fp16"), "q4 KV cache fits more variants at 128K");
+});
