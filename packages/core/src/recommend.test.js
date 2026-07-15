@@ -64,3 +64,12 @@ test("recommend: within a family, balanced picks a mid quant; prefs push to the 
   assert.equal(pick("highest-quality"), "Q8_0");
   assert.equal(pick("fastest"), "Q2_K");
 });
+
+test("recommend: raising target context shrinks what fits (KV cache grows)", () => {
+  const res = { gpu: { total: 16 * GB } };
+  const count = (ctx) => {
+    const r = recommend({ resources: res, workload: { task: "code", targetContext: ctx } });
+    return r.families.reduce((n, f) => n + 1 + f.alternatives.length, 0);
+  };
+  assert.ok(count(131072) < count(4096), "128K context fits fewer variants than 4K");
+});

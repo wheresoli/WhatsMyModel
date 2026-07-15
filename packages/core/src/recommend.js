@@ -2,7 +2,7 @@
 // Pure: no DOM, no network. Hard-gates on fit first (a model that won't fit is
 // never "recommended"), then scores survivors on explainable components so the
 // ranking never becomes an opaque pile of constants.
-import { classifyModel } from "./modelViability.js";
+import { estimateFit, DEFAULT_CONTEXT } from "./memory.js";
 import { SEED_CATALOG } from "./catalog-v1.js";
 
 const TIER_SCORE = { ok: 1, tight: 0.65, over: 0, unknown: 0.3 };
@@ -34,7 +34,13 @@ function speedScore(sizeBytes) {
 // Score one variant against the host + workload. Returns the variant plus its
 // viability classification and per-component scores (for explainability).
 export function scoreVariant(variant, resources, workload = {}) {
-  const viability = classifyModel(variant.sizeBytes, resources);
+  // Size the KV cache for the requested context, capped at the model's own max.
+  const target = workload.targetContext || DEFAULT_CONTEXT;
+  const contextLength = variant.contextLength ? Math.min(target, variant.contextLength) : target;
+  const viability = estimateFit(
+    { sizeBytes: variant.sizeBytes, params: variant.params, contextLength, sequences: workload.concurrentSequences, cacheBits: workload.cacheBits },
+    resources
+  );
   const fit = TIER_SCORE[viability.tier] ?? 0;
   const taskMatch = !workload.task || workload.task === variant.task ? 1 : 0.4;
   // Likely output quality blends model size and quant fidelity.
