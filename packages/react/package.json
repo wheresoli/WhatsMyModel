@@ -11,8 +11,13 @@
   "files": [
     "src"
   ],
-  "peerDependencies": {
-    "react": ">=18",
+  "scripts": {
+    "test": "node --test src/*.test.js"
+  },
+  "dependencies": {
     "@whats-my-model/widget": "*"
+  },
+  "peerDependencies": {
+    "react": ">=18"
   }
 }

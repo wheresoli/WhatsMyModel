@@ -65,3 +65,23 @@ test("estimateFit: q4 KV cache lets a 7B reach 128K on 16 GB", () => {
   assert.equal(estimateFit({ ...m, cacheBits: 16 }, res).tier, "over");
   assert.equal(estimateFit({ ...m, cacheBits: 4 }, res).tier, "ok");
 });
+
+test("kvCacheBytes: NaN (not a spurious number) for invalid numeric inputs", () => {
+  assert.ok(Number.isNaN(kvCacheBytes({ params: 7, contextLength: "foo" })));
+  assert.ok(Number.isNaN(kvCacheBytes({ params: 7, cacheBits: NaN })));
+  assert.ok(Number.isNaN(kvCacheBytes({ params: 7, contextLength: 0 })));
+});
+
+test("estimateFit: invalid cacheBits reports unknown, never a false 'ok'", () => {
+  // A NaN need must not slip through the tier comparisons as "ok".
+  const res = { gpu: { total: 16 * GB } };
+  const fit = estimateFit({ sizeBytes: 4.7 * GB, params: 7, contextLength: 32768, cacheBits: NaN }, res);
+  assert.equal(fit.tier, "unknown");
+});
+
+test("estimateFit: a garbage contextLength falls back to the default", () => {
+  const res = { gpu: { total: 16 * GB } };
+  const fit = estimateFit({ sizeBytes: 2 * GB, params: 3, contextLength: "128K" }, res);
+  assert.equal(fit.contextLength, DEFAULT_CONTEXT);
+  assert.equal(fit.tier, "ok");
+});

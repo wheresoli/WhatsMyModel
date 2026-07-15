@@ -39,8 +39,12 @@ export function huggingFaceCatalogProvider(opts = {}) {
         (Array.isArray(repos) ? repos : []).slice(0, limit).map(async (repo) => {
           const id = repo && (repo.id || repo.modelId);
           if (!id) return [];
+          // Encode each path segment but keep the owner/name slash — repo ids look
+          // like "Qwen/Qwen2.5-7B" and a raw name can carry characters that would
+          // otherwise mangle the request path.
+          const encId = String(id).split("/").map(encodeURIComponent).join("/");
           try {
-            const t = await fetchImpl(`${base}/api/models/${id}/tree/main?recursive=true`);
+            const t = await fetchImpl(`${base}/api/models/${encId}/tree/main?recursive=true`);
             if (!t.ok) return [];
             const files = await t.json();
             return buildVariants(id, files);

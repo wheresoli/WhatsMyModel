@@ -8,7 +8,7 @@ const ATTR = {
   targetContext: "target-context",
   cacheType: "cache-type",
 };
-const CONFIG_KEYS = ["hardwareProvider", "catalogProvider", "workload"];
+const CONFIG_KEYS = ["hardwareProvider", "catalog", "catalogProvider", "workload"];
 
 export function splitProps(props = {}) {
   const attrs = {};

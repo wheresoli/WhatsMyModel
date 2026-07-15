@@ -8,11 +8,12 @@
     <script type="importmap">
       {
         "imports": {
-          "react": "https://esm.sh/react@18",
-          "react-dom/client": "https://esm.sh/react-dom@18/client",
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
           "@whats-my-model/core": "/packages/core/src/index.js",
           "@whats-my-model/widget": "/packages/widget/src/index.js",
           "@whats-my-model/catalog-huggingface": "/packages/catalog-huggingface/src/index.js",
+          "@whats-my-model/catalog-huggingface/snapshot": "/packages/catalog-huggingface/src/snapshot.js",
           "@whats-my-model/react": "/packages/react/src/index.js"
         }
       }
@@ -33,7 +34,7 @@
       import { createRoot } from "react-dom/client";
       import { WhatsMyModel } from "@whats-my-model/react";
       import { manualHardwareProvider } from "@whats-my-model/core";
-      import { snapshotCatalogProvider } from "@whats-my-model/catalog-huggingface";
+      import { snapshotCatalogProvider } from "@whats-my-model/catalog-huggingface/snapshot";
 
       const GB = 2 ** 30;
 

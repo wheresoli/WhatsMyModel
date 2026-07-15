@@ -25,8 +25,16 @@ for (const q of QUERIES) {
     const variants = await huggingFaceCatalogProvider(q).list();
     for (const v of variants) if (!byId.has(v.id)) byId.set(v.id, v);
   } catch (e) {
-    console.warn(`query ${JSON.stringify(q)} failed: ${e.message}`);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`query ${JSON.stringify(q)} failed: ${msg}`);
   }
+}
+
+// Fail fast rather than clobber a good snapshot with an offline/rate-limited empty
+// one (which would then get committed).
+if (byId.size === 0) {
+  console.error("No variants fetched from Hugging Face — refusing to overwrite the snapshot with an empty set (network or rate-limit?).");
+  process.exit(1);
 }
 
 const snapshot = [...byId.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

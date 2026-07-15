@@ -22,7 +22,8 @@
         "imports": {
           "@whats-my-model/core": "/packages/core/src/index.js",
           "@whats-my-model/widget": "/packages/widget/src/index.js",
-          "@whats-my-model/catalog-huggingface": "/packages/catalog-huggingface/src/index.js"
+          "@whats-my-model/catalog-huggingface": "/packages/catalog-huggingface/src/index.js",
+          "@whats-my-model/catalog-huggingface/snapshot": "/packages/catalog-huggingface/src/snapshot.js"
         }
       }
     </script>
@@ -48,7 +49,8 @@
     <script type="module">
       import "@whats-my-model/widget";
       import { manualHardwareProvider, seedCatalogProvider } from "@whats-my-model/core";
-      import { huggingFaceCatalogProvider, snapshotCatalogProvider } from "@whats-my-model/catalog-huggingface";
+      import { huggingFaceCatalogProvider } from "@whats-my-model/catalog-huggingface";
+      import { snapshotCatalogProvider } from "@whats-my-model/catalog-huggingface/snapshot";
 
       const GB = 1024 * 1024 * 1024;
       const el = document.querySelector("whats-my-model");

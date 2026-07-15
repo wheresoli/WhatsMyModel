@@ -3,12 +3,27 @@
 //   hybridCatalogProvider(snapshotCatalogProvider(), huggingFaceCatalogProvider())
 // serves the bundled snapshot instantly, folds in whatever live search adds, and
 // still returns the snapshot if the live fetch fails (offline-resilient).
+const DEFAULT_TIMEOUT_MS = 15000;
+
+// Race a provider's list() against a timer that yields []. A hung/slow provider
+// then contributes nothing after the deadline instead of stalling list() forever
+// (failures are already swallowed; this bounds the pending case too).
+function withTimeout(promise, ms) {
+  let timer;
+  const capped = new Promise((resolve) => {
+    timer = setTimeout(() => resolve([]), ms);
+  });
+  return Promise.race([promise, capped]).finally(() => clearTimeout(timer));
+}
+
 export function hybridCatalogProvider(...providers) {
-  const list_ = providers.filter(Boolean);
+  const activeProviders = providers.filter(Boolean);
   return {
     async list() {
       const lists = await Promise.all(
-        list_.map((p) => Promise.resolve().then(() => p.list()).catch(() => []))
+        activeProviders.map((p) =>
+          withTimeout(Promise.resolve().then(() => p.list()), DEFAULT_TIMEOUT_MS).catch(() => [])
+        )
       );
       const byId = new Map();
       for (const l of lists) {

@@ -39,6 +39,32 @@ function shardTotal(path) {
   return m ? parseInt(m[2], 10) : null;
 }
 
+// The "M" index of an "M-of-N" shard filename (null if not sharded).
+function shardIndex(path) {
+  const m = String(path).match(SHARD_RE);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// A shard set loads only if it's complete and self-consistent: every file declares
+// the same total N, and indices 1..N are each present exactly once. Guards against
+// a partial set, duplicate indices, and a mix of differently-sharded sets that
+// share a base name (e.g. an old -of-00002 plus a newer -of-00003).
+function isCompleteShardSet(shards) {
+  const total = shardTotal(shards[0] && shards[0].path);
+  if (!total) return false;
+  // Reject extra/missing entries up front so duplicates can't slip through.
+  if (shards.length !== total) return false;
+  const seen = new Set();
+  for (const f of shards) {
+    if (shardTotal(f.path) !== total) return false;
+    const idx = shardIndex(f.path);
+    if (!(idx > 0) || idx > total) return false;
+    if (seen.has(idx)) return false;
+    seen.add(idx);
+  }
+  return true;
+}
+
 // Parameter count in billions from a name ("...-7B-..." -> 7), or null. The
 // negative lookahead avoids matching "4bit".
 export function parseParams(str) {
@@ -94,9 +120,8 @@ export function buildVariants(repoId, files) {
     if (g.singles.length) {
       sizeBytes = Math.max(...g.singles.map(fileSize));
     } else {
-      // Sharded only: the whole set must be present or it won't load.
-      const total = shardTotal(g.shards[0] && g.shards[0].path);
-      if (total && g.shards.length < total) continue;
+      // Sharded only: the whole set must be present and consistent or it won't load.
+      if (!isCompleteShardSet(g.shards)) continue;
       sizeBytes = g.shards.reduce((s, f) => s + fileSize(f), 0);
     }
     if (!sizeBytes) continue;
