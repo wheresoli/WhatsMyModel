@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Keep the GitHub Actions we pin (checkout, setup-node, create-pull-request…)
+  # current — also clears the "Node 20 deprecated" runner warnings as new majors land.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "github-actions"]
+
+  # npm workspaces (root + packages/*). Dev tooling only today; grouped to reduce noise.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "npm"]
+    groups:
+      npm-dependencies:
+        patterns: ["*"]

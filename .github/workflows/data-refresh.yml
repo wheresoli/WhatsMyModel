@@ -1,0 +1,50 @@
+name: Refresh catalog data
+
+# Weekly refresh of the baked Hugging Face snapshot. Runs the same script a human
+# would (scripts/build-catalog.mjs) and opens a PR ONLY when the model data actually
+# changed — the script always rewrites GENERATED_AT, so a timestamp-only diff is
+# discarded to avoid weekly no-op PRs.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Rebuild snapshot from Hugging Face
+        run: node scripts/build-catalog.mjs
+
+      - name: Discard timestamp-only churn
+        run: |
+          f=packages/catalog-huggingface/src/snapshot-data.js
+          if [ -z "$(git diff -- "$f" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -v 'GENERATED_AT' || true)" ]; then
+            git checkout -- "$f"
+          else
+            echo "Catalog data changed — a PR will be opened."
+          fi
+
+      - name: Open PR if the snapshot changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automated/hf-catalog-refresh
+          delete-branch: true
+          commit-message: "data: refresh Hugging Face catalog snapshot"
+          title: "data: refresh Hugging Face catalog snapshot"
+          body: |
+            Automated weekly refresh via `scripts/build-catalog.mjs`.
+
+            Review the snapshot diff before merging. Merging updates the GitHub
+            Pages demo automatically; run **Cut release** afterward to ship the
+            new data to npm consumers of `@whats-my-model/catalog-huggingface`.
+          labels: automated, data
