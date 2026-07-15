@@ -16,6 +16,7 @@ import {
 const GB = 1024 * 1024 * 1024;
 const TASKS = ["code", "chat", "reasoning"];
 const PREFS = ["fastest", "balanced", "highest-quality"];
+const CONTEXTS = [[4096, "4K"], [8192, "8K"], [16384, "16K"], [32768, "32K"], [65536, "64K"], [131072, "128K"]];
 const TIER_LABEL = { ok: "Fits", tight: "Tight", over: "Won't fit", unknown: "?" };
 
 const round1 = (n) => Math.round(n * 10) / 10;
@@ -69,14 +70,14 @@ const STYLE = `
 
 export class WhatsMyModel extends HTMLElement {
   static get observedAttributes() {
-    return ["task", "preference"];
+    return ["task", "preference", "target-context"];
   }
 
   #hardwareProvider = browserHardwareProvider();
   #catalog = SEED_CATALOG;
   #catalogProvider = seedCatalogProvider();
   #loadSeq = 0;
-  #workload = { task: "chat", preference: "balanced" };
+  #workload = { task: "chat", preference: "balanced", targetContext: 4096 };
   #vramGB = null;
   #ramGB = null;
   #byId = new Map();
@@ -90,6 +91,7 @@ export class WhatsMyModel extends HTMLElement {
   attributeChangedCallback(name, _old, value) {
     if (name === "task" && value) this.#workload.task = value;
     if (name === "preference" && value) this.#workload.preference = value;
+    if (name === "target-context" && value) this.#workload.targetContext = parseInt(value, 10);
     if (this.#els) {
       this.#syncControls();
       this.#recompute();
@@ -99,8 +101,10 @@ export class WhatsMyModel extends HTMLElement {
   connectedCallback() {
     const t = this.getAttribute("task");
     const p = this.getAttribute("preference");
+    const tc = this.getAttribute("target-context");
     if (t) this.#workload.task = t;
     if (p) this.#workload.preference = p;
+    if (tc) this.#workload.targetContext = parseInt(tc, 10);
     this.#build();
     this.#detect();
   }
@@ -183,6 +187,9 @@ export class WhatsMyModel extends HTMLElement {
         <label class="field">Preference
           <select id="pref">${PREFS.map((p) => `<option value="${p}">${p}</option>`).join("")}</select>
         </label>
+        <label class="field">Context
+          <select id="ctx">${CONTEXTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
+        </label>
         <label class="field">GPU VRAM (GB)
           <input id="vram" type="number" min="0" step="0.5" placeholder="e.g. 16" />
         </label>
@@ -194,7 +201,7 @@ export class WhatsMyModel extends HTMLElement {
       <div class="results" part="results"></div>
     `;
     const $ = (id) => this.shadowRoot.getElementById(id);
-    this.#els = { task: $("task"), pref: $("pref"), vram: $("vram"), ram: $("ram"), results: this.shadowRoot.querySelector(".results") };
+    this.#els = { task: $("task"), pref: $("pref"), ctx: $("ctx"), vram: $("vram"), ram: $("ram"), results: this.shadowRoot.querySelector(".results") };
 
     this.#els.task.addEventListener("change", (e) => {
       this.#workload.task = e.target.value;
@@ -202,6 +209,10 @@ export class WhatsMyModel extends HTMLElement {
     });
     this.#els.pref.addEventListener("change", (e) => {
       this.#workload.preference = e.target.value;
+      this.#recompute();
+    });
+    this.#els.ctx.addEventListener("change", (e) => {
+      this.#workload.targetContext = parseInt(e.target.value, 10);
       this.#recompute();
     });
     const onNum = (key) => (e) => {
@@ -244,6 +255,7 @@ export class WhatsMyModel extends HTMLElement {
     if (!this.#els) return;
     this.#els.task.value = this.#workload.task;
     this.#els.pref.value = this.#workload.preference;
+    this.#els.ctx.value = String(this.#workload.targetContext);
     this.#els.vram.value = this.#vramGB ?? "";
     this.#els.ram.value = this.#ramGB ?? "";
   }
@@ -266,6 +278,7 @@ export class WhatsMyModel extends HTMLElement {
     const { families, wontFit } = result;
     for (const f of families) for (const v of [f.recommended, ...f.alternatives]) this.#byId.set(v.id, v);
     for (const v of wontFit) this.#byId.set(v.id, v);
+    const ctxLabel = (CONTEXTS.find(([v]) => v === this.#workload.targetContext) || [0, String(this.#workload.targetContext)])[1];
 
     const cards = families
       .map((f) => {
@@ -274,7 +287,7 @@ export class WhatsMyModel extends HTMLElement {
         return `<div class="card" part="result-card">
           <h4>${esc(f.family)}</h4>
           ${this.#row(rec, true)}
-          <div class="reason">Recommended for ${esc(this.#workload.preference)} · ${esc(viabilityLabel(rec.viability))}${tightNote}</div>
+          <div class="reason">Recommended for ${esc(this.#workload.preference)} at ${ctxLabel} ctx · ${esc(viabilityLabel(rec.viability))}${tightNote}</div>
           ${f.alternatives.length ? `<div class="alts">${f.alternatives.slice(0, 5).map((v) => this.#row(v, true)).join("")}${f.alternatives.length > 5 ? `<div class="reason">+${f.alternatives.length - 5} more quant${f.alternatives.length - 5 > 1 ? "s" : ""}</div>` : ""}</div>` : ""}
         </div>`;
       })
