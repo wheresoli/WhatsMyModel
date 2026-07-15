@@ -28,9 +28,7 @@ jobs:
       - name: Discard timestamp-only churn
         run: |
           f=packages/catalog-huggingface/src/snapshot-data.js
-          # Real changes = added/removed lines other than the GENERATED_AT export.
-          if [ -z "$(git diff -- "$f" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -v 'GENERATED_AT')" ]; then
-            echo "Only GENERATED_AT changed — no catalog update, reverting."
+          if [ -z "$(git diff -- "$f" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -v 'GENERATED_AT' || true)" ]; then
             git checkout -- "$f"
           else
             echo "Catalog data changed — a PR will be opened."
