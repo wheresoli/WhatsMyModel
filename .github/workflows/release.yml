@@ -27,9 +27,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          set -euo pipefail
           for pkg in core catalog-huggingface widget react; do
             echo "::group::@whats-my-model/$pkg"
-            npm publish "packages/$pkg" --access public \
-              || echo "skipped @whats-my-model/$pkg (that version may already be published)"
+            name="@whats-my-model/$pkg"
+            version="$(node -e "console.log(JSON.parse(require('fs').readFileSync('packages/$pkg/package.json','utf8')).version)")"
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "skipped $name@$version (already published)"
+            else
+              npm publish "packages/$pkg" --access public
+            fi
             echo "::endgroup::"
           done
