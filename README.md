@@ -5,7 +5,7 @@ A portable engine and Web Component that answers "which local (GGUF) model actua
 The core is **pure JavaScript with no DOM, framework, or backend dependency**: given a hardware profile (`{ gpu, ram }` in bytes) and a model's file size, it classifies fit (`ok` / `tight` / `over`). Hardware detection is *not* baked in — each host injects it through a `HardwareProvider`. A browser best-effort provider ships in-package (no backend); desktop hosts supply an exact native probe. That injection seam is what lets the widget drop into any tool without carrying its own server.
 
 ## Packages
-
+https://www.npmjs.com/org/whats-my-model
 - [`@whats-my-model/core`](packages/core) — pure fit engine (`classifyModel`, context/KV-cache-aware `estimateFit`), GGUF discovery, ranking (`recommend`), and the hardware/catalog provider contracts. Zero dependencies.
 - [`@whats-my-model/widget`](packages/widget) — the `<whats-my-model>` Web Component (vanilla, no build). Task / preference / context / KV-cache controls, editable hardware, a `wmm-select` event.
 - [`@whats-my-model/catalog-huggingface`](packages/catalog-huggingface) — backend-free Hugging Face catalog: live search, a bundled snapshot, a hybrid (snapshot ∪ live), and an IndexedDB cache.
