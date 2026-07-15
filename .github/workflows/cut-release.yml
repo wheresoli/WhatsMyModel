@@ -1,0 +1,42 @@
+name: Cut release
+
+# Manual, one-click release. You supply a version; this bumps all four packages in
+# lockstep (and their internal @whats-my-model/* dependency ranges), commits to main,
+# and pushes a vX.Y.Z tag — which triggers "Publish to npm" (release.yml).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version, e.g. 0.2.0 (no leading v)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set version across workspaces
+        run: node scripts/set-version.mjs "${{ inputs.version }}"
+
+      - name: Test before releasing
+        run: node --test packages/*/src/*.test.js
+
+      - name: Commit, tag, and push
+        run: |
+          v="${{ inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: v$v"
+          git tag "v$v"
+          git push origin HEAD:main
+          git push origin "v$v"
+          echo "Tagged v$v — the Publish to npm workflow will run on the new tag."
