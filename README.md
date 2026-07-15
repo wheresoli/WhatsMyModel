@@ -18,11 +18,12 @@ Drop the widget into any page buildlessly via an import map — see [`apps/demo`
 ```js
 import "@whats-my-model/widget";
 import {
-  snapshotCatalogProvider,
   huggingFaceCatalogProvider,
   hybridCatalogProvider,
   cachedCatalogProvider,
 } from "@whats-my-model/catalog-huggingface";
+// The bundled snapshot ships behind a subpath so live-only consumers don't load it.
+import { snapshotCatalogProvider } from "@whats-my-model/catalog-huggingface/snapshot";
 
 const el = document.querySelector("whats-my-model");
 el.configure({
