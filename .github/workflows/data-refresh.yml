@@ -35,7 +35,7 @@ jobs:
           fi
 
       - name: Open PR if the snapshot changed
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: automated/hf-catalog-refresh
           delete-branch: true
