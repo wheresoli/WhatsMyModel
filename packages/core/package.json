@@ -1,6 +1,6 @@
 {
   "name": "@whats-my-model/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Pure hardware-fit engine for local GGUF models: will it fit this machine?",
   "type": "module",
   "license": "Apache-2.0",
