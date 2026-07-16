@@ -26,6 +26,12 @@ const CONTEXTS = [[4096, "4K"], [8192, "8K"], [16384, "16K"], [32768, "32K"], [6
 const CACHES = [["fp16", "fp16"], ["q8_0", "q8"], ["q4_0", "q4"]];
 const CACHE_TYPES = new Set(CACHES.map(([v]) => v));
 const DEFAULT_CACHE = "fp16";
+
+// Format viability as exact values: "12.5 GB / 16 GB"
+const viabilityBadge = (v) => {
+    if (!v || v.tier === "unknown" || !v.need || !v.ceiling) return "?";
+    return `${formatBytes(v.need)} / ${formatBytes(v.ceiling)}`;
+};
 // Native-tooltip copy per control, surfaced via title= on hover. Static author
 // strings (no quotes/angle-brackets), so inlined into the template unescaped.
 const TIPS = {
@@ -45,7 +51,6 @@ const parseContext = (value) => {
     const n = Number(s);
     return Number.isSafeInteger(n) && n > 0 ? n : null;
 };
-const TIER_LABEL = { ok: "Fits", tight: "Tight", over: "Won't fit", unknown: "?" };
 
 const round1 = (n) => Math.round(n * 10) / 10;
 const esc = (s) =>
@@ -66,51 +71,54 @@ const hfModelFileUrl = (v) => {
 
 const STYLE = `
 :host {
-  --wmm-bg: #ffffff; --wmm-fg: #1a1a1a; --wmm-muted: #6b7280;
-  --wmm-border: #e5e7eb; --wmm-accent: #2563eb; --wmm-radius: 12px;
-  --wmm-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  /* consumed by core's viabilityColor(); override to reskin */
-  --status-complete: #16a34a; --status-loading: #d97706; --status-failed: #dc2626; --node-neutral: #9ca3af;
+  --wmm-bg: #ffffff; --wmm-fg: #1f2937; --wmm-muted: #6b7280; --wmm-faint: #9ca3af;
+  --wmm-border: #d1d5db; --wmm-accent: #1f2937; --wmm-radius: 5px;
+  --wmm-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --status-complete: #059669; --status-loading: #d97706; --status-failed: #dc2626; --node-neutral: #9ca3af;
   display: block; font-family: var(--wmm-font); color: var(--wmm-fg);
   background: var(--wmm-bg); border: 1px solid var(--wmm-border);
-  border-radius: var(--wmm-radius); padding: 16px; max-width: 560px; box-sizing: border-box;
+  border-radius: var(--wmm-radius); padding: 20px; max-width: 640px; box-sizing: border-box;
 }
 @media (prefers-color-scheme: dark) {
   :host {
-    --wmm-bg: #0f1115; --wmm-fg: #e6e8eb; --wmm-muted: #99a2ad;
-    --wmm-border: #272c34; --wmm-accent: #60a5fa;
-    --status-complete: #22c55e; --status-loading: #f59e0b; --status-failed: #ef4444; --node-neutral: #6b7280;
+    --wmm-bg: #1f2937; --wmm-fg: #f3f4f6; --wmm-muted: #d1d5db; --wmm-faint: #9ca3af;
+    --wmm-border: #374151; --wmm-accent: #f3f4f6;
+    --status-complete: #10b981; --status-loading: #f59e0b; --status-failed: #ef4444;
   }
 }
 * { box-sizing: border-box; }
-.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
-.field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--wmm-muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 16px 12px; align-items: flex-end; margin-bottom: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 500; color: var(--wmm-muted); }
 .field[title] { cursor: help; }
 .field input, .field select {
-  font-family: inherit; font-size: 13px; text-transform: none; letter-spacing: normal;
+  font-family: inherit; font-size: 13px;
   color: var(--wmm-fg); background: var(--wmm-bg); border: 1px solid var(--wmm-border);
-  border-radius: 7px; padding: 6px 8px;
+  border-radius: var(--wmm-radius); padding: 8px 10px;
 }
-.field input { width: 92px; }
-.hint { font-size: 12px; color: var(--wmm-muted); margin: 10px 0 4px; }
-.results { margin-top: 8px; }
-.card { border: 1px solid var(--wmm-border); border-radius: 9px; padding: 10px 12px; margin-top: 8px; }
-.card h4 { margin: 0 0 4px; font-size: 14px; }
-.row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; border-radius: 6px; }
-.row.click { cursor: pointer; }
-.row.click:hover { color: var(--wmm-accent); }
+.field input { width: 100px; }
+.field select { padding: 8px 8px; }
+.hint { font-size: 12px; color: var(--wmm-faint); margin: 8px 0 0; line-height: 1.4; }
+.results { margin-top: 16px; }
+.card { border: 1px solid var(--wmm-border); border-radius: var(--wmm-radius); padding: 12px 14px; margin-top: 12px; background: color-mix(in srgb, var(--wmm-fg) 2%, transparent); }
+.card h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+.row { display: flex; align-items: center; gap: 10px; padding: 8px 4px; font-size: 13px; border-radius: 3px; }
+.row.click { cursor: pointer; transition: background 80ms; }
+.row.click:hover { background: color-mix(in srgb, var(--wmm-accent) 6%, transparent); }
 .row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.quant, .size { color: var(--wmm-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.badge { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; color: #fff; white-space: nowrap; }
-.reason { font-size: 12px; color: var(--wmm-muted); margin-top: 2px; }
-.alts { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--wmm-border); }
+.quant { color: var(--wmm-muted); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 500; }
+.size { color: var(--wmm-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 3px; color: #fff; white-space: nowrap; }
+.reason { font-size: 12px; color: var(--wmm-muted); margin-top: 4px; }
+.alts { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--wmm-border); }
 .alts .row { color: var(--wmm-muted); }
-.wontfit { margin-top: 12px; }
-.wontfit summary { cursor: pointer; font-size: 12px; color: var(--wmm-muted); }
-.empty { color: var(--wmm-muted); font-size: 13px; padding: 10px 0; }
-.hf-links { display: flex; gap: 2px; flex-shrink: 0; }
-.hf-link { color: var(--wmm-muted); text-decoration: none; font-size: 12px; line-height: 1; padding: 0 2px; }
-.hf-link:hover { color: var(--wmm-accent); }
+.wontfit { margin-top: 16px; }
+.wontfit summary { cursor: pointer; font-size: 12px; color: var(--wmm-muted); font-weight: 500; user-select: none; }
+.wontfit summary:hover { color: var(--wmm-fg); }
+.empty { color: var(--wmm-muted); font-size: 13px; padding: 12px 0; }
+.hf-links { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.hf-link { color: var(--wmm-muted); text-decoration: none; font-size: 13px; line-height: 1; padding: 4px 6px; border-radius: 3px; cursor: pointer; transition: all 80ms; }
+.hf-link:hover { color: var(--wmm-accent); background: color-mix(in srgb, var(--wmm-accent) 8%, transparent); }
+.hf-link--interactive { cursor: pointer; }
 `;
 
 export class WhatsMyModel extends HTMLElement {
@@ -121,6 +129,7 @@ export class WhatsMyModel extends HTMLElement {
     #hardwareProvider = browserHardwareProvider();
     #catalog = SEED_CATALOG;
     #catalogProvider = seedCatalogProvider();
+    #onDownload = null;
     #loadSeq = 0;
     #workload = { task: "chat", preference: "balanced", targetContext: 4096, cacheType: "fp16" };
     #vramGB = null;
@@ -165,7 +174,7 @@ export class WhatsMyModel extends HTMLElement {
 
     // Host seam: swap hardware detection, the catalog (an array via `catalog`, or an
     // async `catalogProvider` with list()), or the workload.
-    configure({ hardwareProvider, catalog, catalogProvider, workload } = {}) {
+    configure({ hardwareProvider, catalog, catalogProvider, workload, onDownload } = {}) {
         let reDetect = false;
         let reLoad = false;
         if (hardwareProvider) {
@@ -177,6 +186,9 @@ export class WhatsMyModel extends HTMLElement {
         if (catalogProvider) {
             this.#catalogProvider = catalogProvider;
             reLoad = true;
+        }
+        if (typeof onDownload === "function") {
+            this.#onDownload = onDownload;
         }
         if (!this.#els) return;
         this.#syncControls();
@@ -301,7 +313,24 @@ export class WhatsMyModel extends HTMLElement {
                 this.dispatchEvent(new CustomEvent("wmm-select", { detail: { variant }, bubbles: true, composed: true }));
             }
         };
-        this.#els.results.addEventListener("click", (e) => { if (!e.target.closest("a")) activate(e.target); });
+        this.#els.results.addEventListener("click", (e) => {
+            const downloadLink = e.target.closest("[data-download-id]");
+            if (downloadLink && this.#onDownload) {
+                e.preventDefault();
+                e.stopPropagation();
+                const variantId = downloadLink.dataset.downloadId;
+                const variant = this.#byId.get(variantId);
+                if (variant) {
+                    this.#onDownload({
+                        variant,
+                        fileUrl: hfModelFileUrl(variant),
+                        repo: variant.source?.repo,
+                    });
+                }
+                return;
+            }
+            if (!e.target.closest("a")) activate(e.target);
+        });
         this.#els.results.addEventListener("keydown", (e) => {
             if (e.target.closest?.("a")) return;
             if (e.key === "Enter" || e.key === " ") {
@@ -329,14 +358,19 @@ export class WhatsMyModel extends HTMLElement {
     #row(v, clickable) {
         const pageUrl = hfModelPageUrl(v);
         const fileUrl = hfModelFileUrl(v);
+        const downloadHandler = this.#onDownload ? ` data-download-id=\"${esc(v.id)}\"` : "";
+        const downloadAttrs = this.#onDownload
+            ? ` class=\"hf-link hf-link--interactive\" title=\"Download GGUF file\" aria-label=\"Download GGUF file\"${downloadHandler}`
+            : ` class=\"hf-link\" href=\"${fileUrl}\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"Download GGUF file\" aria-label=\"Download GGUF file\"`;
+        const downloadTag = `<a${downloadAttrs}>⬇</a>`;
         const links = pageUrl
-            ? `<span class="hf-links">${fileUrl ? `<a class="hf-link" href="${fileUrl}" target="_blank" rel="noopener noreferrer" title="Download GGUF file" aria-label="Download GGUF file">⬇</a>` : ""}<a class="hf-link" href="${pageUrl}" target="_blank" rel="noopener noreferrer" title="View on Hugging Face" aria-label="View on Hugging Face">↗</a></span>`
+            ? `<span class=\"hf-links\">${fileUrl ? downloadTag : ""}<a class=\"hf-link\" href=\"${pageUrl}\" target=\"_blank\" rel=\"noopener noreferrer\" title=\"View on Hugging Face\" aria-label=\"View on Hugging Face\">↗</a></span>`
             : "";
-        return `<div class="row${clickable ? " click" : ""}"${clickable ? ` data-variant-id="${esc(v.id)}" role="button" tabindex="0"` : ""}>
-      <span class="grow">${esc(v.name)}</span>
-      <span class="quant">${esc(v.quant)}</span>
-      <span class="size">${formatBytes(v.sizeBytes)}</span>
-      <span class="badge" style="background:${viabilityColor(v.viability.tier)}">${TIER_LABEL[v.viability.tier] || "?"}</span>
+        return `<div class=\"row${clickable ? " click" : ""}\"${clickable ? ` data-variant-id=\"${esc(v.id)}\" role=\"button\" tabindex=\"0\"` : ""}>
+      <span class=\"grow\">${esc(v.name)}</span>
+      <span class=\"quant\">${esc(v.quant)}</span>
+      <span class=\"size\">${formatBytes(v.sizeBytes)}</span>
+      <span class=\"badge\" style=\"background:${viabilityColor(v.viability.tier)}\">${viabilityBadge(v.viability)}</span>
       ${links}
     </div>`;
     }

@@ -1,11 +1,17 @@
 {
-  "name": "whats-my-model",
-  "private": true,
-  "version": "0.0.0",
-  "description": "Portable engine + widget for 'which local model fits my machine?'",
-  "type": "module",
-  "license": "Apache-2.0",
-  "workspaces": [
-    "packages/*"
-  ]
+    "name": "whats-my-model",
+    "private": true,
+    "version": "0.0.0",
+    "description": "Portable engine + widget for 'which local model fits my machine?'",
+    "type": "module",
+    "license": "Apache-2.0",
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "live-server --entry-file=apps/demo/index.html --port=8099"
+    },
+    "devDependencies": {
+        "live-server": "^1.2.2"
+    }
 }
