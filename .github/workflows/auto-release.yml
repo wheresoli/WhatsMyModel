@@ -1,0 +1,60 @@
+name: Auto Release
+
+# Automatically cut and publish a release whenever code is pushed to main.
+# Skips commits from github-actions bot to avoid infinite loops.
+# Bumps patch version, runs tests, commits & tags, which triggers Publish to npm.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Skip if commit author is github-actions bot (avoid infinite loop)
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: node --test packages/*/src/*.test.js
+      
+      - name: Get current version
+        id: current_version
+        run: |
+          version=$(node -e "console.log(JSON.parse(require('fs').readFileSync('packages/core/package.json','utf8')).version)")
+          echo "version=$version" >> $GITHUB_OUTPUT
+      
+      - name: Calculate next version (patch bump)
+        id: next_version
+        run: |
+          current="${{ steps.current_version.outputs.version }}"
+          next=$(node -e "const [maj, min, patch] = '$current'.split('.'); console.log(\`\${maj}.\${min}.\${Number(patch)+1}\`)")
+          echo "version=$next" >> $GITHUB_OUTPUT
+      
+      - name: Update versions in all packages
+        run: node scripts/set-version.mjs "${{ steps.next_version.outputs.version }}"
+      
+      - name: Commit and tag
+        run: |
+          v="${{ steps.next_version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(release): v$v"
+          git tag "v$v"
+          git push origin HEAD:main
+          git push origin "v$v"
+          echo "✅ Released v$v — npm publish workflow triggered"
