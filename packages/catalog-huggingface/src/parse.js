@@ -141,7 +141,7 @@ export function buildVariants(repoId, files, contextLength) {
             sizeBytes,
             ...(projectorBytes > 0 ? { sidecarBytes: projectorBytes } : {}),
             modalities,
-            source: { provider: "huggingface", repo: repoId, path: key },
+            source: { provider: "huggingface", repo: repoId, ...(g.singles.length ? { path: key } : {}) },
         });
     }
     return variants;
