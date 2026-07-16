@@ -303,6 +303,7 @@ export class WhatsMyModel extends HTMLElement {
         };
         this.#els.results.addEventListener("click", (e) => { if (!e.target.closest("a")) activate(e.target); });
         this.#els.results.addEventListener("keydown", (e) => {
+            if (e.target.closest?.("a")) return;
             if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 activate(e.target);
