@@ -330,7 +330,7 @@ export class WhatsMyModel extends HTMLElement {
         const pageUrl = hfModelPageUrl(v);
         const fileUrl = hfModelFileUrl(v);
         const links = pageUrl
-            ? `<span class="hf-links">${fileUrl ? `<a class="hf-link" href="${fileUrl}" target="_blank" rel="noopener noreferrer" title="Download GGUF file">⬇</a>` : ""}<a class="hf-link" href="${pageUrl}" target="_blank" rel="noopener noreferrer" title="View on Hugging Face">↗</a></span>`
+            ? `<span class="hf-links">${fileUrl ? `<a class="hf-link" href="${fileUrl}" target="_blank" rel="noopener noreferrer" title="Download GGUF file" aria-label="Download GGUF file">⬇</a>` : ""}<a class="hf-link" href="${pageUrl}" target="_blank" rel="noopener noreferrer" title="View on Hugging Face" aria-label="View on Hugging Face">↗</a></span>`
             : "";
         return `<div class="row${clickable ? " click" : ""}"${clickable ? ` data-variant-id="${esc(v.id)}" role="button" tabindex="0"` : ""}>
       <span class="grow">${esc(v.name)}</span>
