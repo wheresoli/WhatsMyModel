@@ -55,6 +55,17 @@ test("buildVariants dedupes single-vs-sharded, drops full precision, infers meta
   assert.equal(q4.sidecarBytes, undefined);
 });
 
+test("buildVariants stamps a known contextLength on every variant, omits garbage", () => {
+  const withCtx = buildVariants("Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", FILES, 131072);
+  for (const v of withCtx) assert.equal(v.contextLength, 131072); // shared across quants
+  const noCtx = buildVariants("Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", FILES);
+  for (const v of noCtx) assert.equal("contextLength" in v, false); // absent -> omitted, not null
+  for (const bad of [0, -1, NaN, "128k"]) {
+    const vs = buildVariants("Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", FILES, bad);
+    for (const v of vs) assert.equal("contextLength" in v, false); // never poisons the fit engine
+  }
+});
+
 test("mmproj is a sidecar (not a variant) and marks the repo multimodal", () => {
   const files = [
     { path: "llava-v1.6-vicuna-7b-q4_k_m.gguf", size: 4100000000 },

@@ -4,4 +4,4 @@
 export { huggingFaceCatalogProvider } from "./provider.js";
 export { hybridCatalogProvider } from "./hybrid.js";
 export { cachedCatalogProvider, indexedDbStore } from "./cache.js";
-export { buildVariants, parseQuant, parseParams, inferTask, cleanFamily, isShard, shardBase, isMmproj } from "./parse.js";
+export { buildVariants, parseQuant, parseParams, inferTask, cleanFamily, isShard, shardBase, isMmproj, modelPageUrl, modelFileUrl } from "./parse.js";
