@@ -12,7 +12,10 @@ function stubFetch(routes) {
   };
 }
 
-const MODELS = [{ id: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF" }, { id: "broken/repo-GGUF" }];
+const MODELS = [
+  { id: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", gguf: { context_length: 32768 } },
+  { id: "broken/repo-GGUF" },
+];
 const TREE = [
   { path: "qwen2.5-coder-7b-instruct-q4_k_m.gguf", size: 4683073536 },
   { path: "qwen2.5-coder-7b-instruct-q8_0.gguf", size: 8100000000 },
@@ -35,9 +38,11 @@ test("provider maps HF responses into variants and applies the task search", asy
   assert.ok(calls[0].includes("filter=gguf"));
   assert.ok(calls[0].includes("pipeline_tag=text-generation"));
   assert.ok(calls[0].includes("search=coder")); // task -> search term
+  assert.ok(calls[0].includes("expand")); // asks for GGUF metadata (context_length)
   const quants = variants.map((v) => v.quant).sort();
   assert.deepEqual(quants, ["Q4_K_M", "Q8_0"]); // fp16 dropped; broken repo contributed nothing
   assert.equal(variants[0].source.provider, "huggingface");
+  for (const v of variants) assert.equal(v.contextLength, 32768); // from expanded gguf metadata
 });
 
 test("provider throws on a failed model list", async () => {

@@ -27,6 +27,9 @@ export function huggingFaceCatalogProvider(opts = {}) {
       url.searchParams.set("sort", "downloads");
       url.searchParams.set("direction", "-1");
       url.searchParams.set("limit", String(limit));
+      // Ask HF to fold each repo's parsed GGUF metadata into the list response, so
+      // we get context_length for free (no extra per-repo fetch).
+      url.searchParams.append("expand[]", "gguf");
       if (search) url.searchParams.set("search", search);
 
       const res = await fetchImpl(url.toString());
@@ -39,6 +42,9 @@ export function huggingFaceCatalogProvider(opts = {}) {
         (Array.isArray(repos) ? repos : []).slice(0, limit).map(async (repo) => {
           const id = repo && (repo.id || repo.modelId);
           if (!id) return [];
+          // Repo-level max context from the expanded GGUF metadata (absent for some
+          // repos — buildVariants then just omits contextLength for them).
+          const contextLength = repo.gguf && repo.gguf.context_length;
           // Encode each path segment but keep the owner/name slash — repo ids look
           // like "Qwen/Qwen2.5-7B" and a raw name can carry characters that would
           // otherwise mangle the request path.
@@ -47,7 +53,7 @@ export function huggingFaceCatalogProvider(opts = {}) {
             const t = await fetchImpl(`${base}/api/models/${encId}/tree/main?recursive=true`);
             if (!t.ok) return [];
             const files = await t.json();
-            return buildVariants(id, files);
+            return buildVariants(id, files, contextLength);
           } catch {
             return [];
           }
