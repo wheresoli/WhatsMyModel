@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Redeploy after the weekly catalog refresh commits new data. The refresh pushes
+  # with GITHUB_TOKEN (which does not fire the `push` event above), but workflow_run
+  # fires regardless — so the live site's baked snapshot stays fresh.
+  workflow_run:
+    workflows: ["Refresh catalog data"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -17,6 +23,9 @@ concurrency:
 
 jobs:
   deploy:
+    # On a workflow_run trigger, only deploy if the refresh succeeded; push and
+    # manual dispatch always deploy.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
