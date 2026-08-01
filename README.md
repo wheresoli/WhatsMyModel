@@ -1,6 +1,6 @@
 # What's My Model?
 
-A portable engine and Web Component that answers "which local (GGUF) model actually fits my machine?"
+A catalog of viable AI models for your hardware.
 
 The core is **pure JavaScript with no DOM, framework, or backend dependency**: given a hardware profile (`{ gpu, ram }` in bytes) and a model's file size, it classifies fit (`ok` / `tight` / `over`). Hardware detection is *not* baked in — each host injects it through a `HardwareProvider`. A browser best-effort provider ships in-package (no backend); desktop hosts supply an exact native probe. That injection seam is what lets the widget drop into any tool without carrying its own server.
 

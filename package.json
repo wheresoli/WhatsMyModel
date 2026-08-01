@@ -2,7 +2,7 @@
     "name": "whats-my-model",
     "private": true,
     "version": "0.0.0",
-    "description": "Portable engine + widget for 'which local model fits my machine?'",
+    "description": "A catalog of viable AI models for your hardware.",
     "type": "module",
     "license": "Apache-2.0",
     "workspaces": [
