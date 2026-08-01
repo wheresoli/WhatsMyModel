@@ -20,7 +20,21 @@ import { huggingFaceCatalogProvider } from "../packages/catalog-huggingface/src/
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = join(here, "..", "packages", "catalog-huggingface", "src", "snapshot-data.js");
 const PREV = await import("../packages/catalog-huggingface/src/snapshot-data.js")
-  .then(({ SNAPSHOT }) => (Array.isArray(SNAPSHOT) ? SNAPSHOT : []))
+  .then(({ SNAPSHOT }) =>
+    Array.isArray(SNAPSHOT) &&
+    SNAPSHOT.every(
+      (v) =>
+        v &&
+        typeof v.id === "string" &&
+        typeof v.family === "string" &&
+        typeof v.quant === "string" &&
+        v.sizeBytes > 0 &&
+        Array.isArray(v.modalities) &&
+        typeof v.source?.repo === "string"
+    )
+      ? SNAPSHOT
+      : []
+  )
   .catch((error) => {
     console.warn(`Previous snapshot unavailable; starting empty: ${error instanceof Error ? error.message : String(error)}`);
     return [];
