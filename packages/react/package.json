@@ -1,6 +1,6 @@
 {
   "name": "@whats-my-model/react",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Thin React wrapper for the <whats-my-model> Web Component — props in, wmm-select out.",
   "type": "module",
   "license": "Apache-2.0",
@@ -22,7 +22,7 @@
     "test": "node --test src/*.test.js"
   },
   "dependencies": {
-    "@whats-my-model/widget": "^0.2.4"
+    "@whats-my-model/widget": "^0.2.5"
   },
   "peerDependencies": {
     "react": ">=18"
