@@ -14,13 +14,17 @@ import { writeFileSync, appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 // Import the provider directly (not the package index) — the index re-exports the
-// snapshot module, which would be a bootstrap cycle. snapshot-data.js is pure data
-// (no imports), so reading the PREVIOUS snapshot from it for guardrails is safe.
+// snapshot module, which would be a bootstrap cycle.
 import { huggingFaceCatalogProvider } from "../packages/catalog-huggingface/src/provider.js";
-import { SNAPSHOT as PREV } from "../packages/catalog-huggingface/src/snapshot-data.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = join(here, "..", "packages", "catalog-huggingface", "src", "snapshot-data.js");
+const PREV = await import("../packages/catalog-huggingface/src/snapshot-data.js")
+  .then(({ SNAPSHOT }) => (Array.isArray(SNAPSHOT) ? SNAPSHOT : []))
+  .catch((error) => {
+    console.warn(`Previous snapshot unavailable; starting empty: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  });
 
 // ── Curation knobs — the only hand-maintained part ──────────────────────────
 
