@@ -1,9 +1,11 @@
 name: Refresh catalog data
 
 # Weekly refresh of the baked Hugging Face snapshot. Runs the same script a human
-# would (scripts/build-catalog.mjs) and opens a PR ONLY when the model data actually
-# changed — the script always rewrites GENERATED_AT, so a timestamp-only diff is
-# discarded to avoid weekly no-op PRs.
+# would (scripts/build-catalog.mjs), which restricts to trusted publishers and
+# self-guards against bad fetches (keeps last-good on empty/partial). Commits the
+# refreshed snapshot straight to main when — and only when — the model data changed.
+# The push uses GITHUB_TOKEN, so it does NOT retrigger Auto Release (npm stays a
+# deliberate, human-cut release); Pages redeploys via its workflow_run hook.
 on:
   schedule:
     - cron: "0 6 * * 1" # Mondays 06:00 UTC
@@ -11,7 +13,10 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -22,29 +27,22 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Rebuild snapshot from Hugging Face
+      - name: Rebuild snapshot from Hugging Face (trusted publishers, guarded)
         run: node scripts/build-catalog.mjs
 
-      - name: Discard timestamp-only churn
+      - name: Commit if the model data changed
         run: |
           f=packages/catalog-huggingface/src/snapshot-data.js
-          if [ -z "$(git diff -- "$f" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -v 'GENERATED_AT' || true)" ]; then
-            git checkout -- "$f"
+          # The script always rewrites GENERATED_AT, so ignore a timestamp-only diff
+          # to avoid a weekly no-op commit; commit only when real data changed.
+          if [ -n "$(git diff -- "$f" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -v 'GENERATED_AT' || true)" ]; then
+            git config user.name "whatsmymodel-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$f"
+            git commit -m "data: refresh Hugging Face catalog snapshot ($(date -u +%F))"
+            git push
+            echo "Catalog data changed — committed and pushed."
           else
-            echo "Catalog data changed — a PR will be opened."
+            git checkout -- "$f"
+            echo "No catalog changes (timestamp-only diff discarded)."
           fi
-
-      - name: Open PR if the snapshot changed
-        uses: peter-evans/create-pull-request@v8
-        with:
-          branch: automated/hf-catalog-refresh
-          delete-branch: true
-          commit-message: "data: refresh Hugging Face catalog snapshot"
-          title: "data: refresh Hugging Face catalog snapshot"
-          body: |
-            Automated weekly refresh via `scripts/build-catalog.mjs`.
-
-            Review the snapshot diff before merging. Merging updates the GitHub
-            Pages demo automatically; run **Cut release** afterward to ship the
-            new data to npm consumers of `@whats-my-model/catalog-huggingface`.
-          labels: automated, data

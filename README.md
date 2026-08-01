@@ -1,6 +1,6 @@
 # What's My Model?
 
-A portable engine and Web Component that answers "which local (GGUF) model actually fits my machine?"
+A catalog of viable AI models for your hardware.
 
 The core is **pure JavaScript with no DOM, framework, or backend dependency**: given a hardware profile (`{ gpu, ram }` in bytes) and a model's file size, it classifies fit (`ok` / `tight` / `over`). Hardware detection is *not* baked in — each host injects it through a `HardwareProvider`. A browser best-effort provider ships in-package (no backend); desktop hosts supply an exact native probe. That injection seam is what lets the widget drop into any tool without carrying its own server.
 
@@ -45,6 +45,33 @@ el.addEventListener("wmm-select", (e) => console.log(e.detail.variant));
 React hosts: `import { WhatsMyModel } from "@whats-my-model/react"` — see [`examples/react`](examples/react).
 
 Dev: `python scripts/serve.py` serves the demos (no-store, so ES-module edits are picked up); `node scripts/build-catalog.mjs` regenerates the snapshot; `node --test packages/*/src/*.test.js` runs the suite.
+
+## Staying current
+
+Two independent mechanisms keep the catalog relevant, so it never rots:
+
+1. **Runtime (live site / any host).** The hybrid provider folds a live Hugging Face
+   search into the bundled snapshot on every load — the site is current even between
+   refreshes, and unknown models resolve on drill-in.
+2. **Scheduled refresh (GitHub Action, weekly).** [`.github/workflows/data-refresh.yml`](.github/workflows/data-refresh.yml)
+   runs `scripts/build-catalog.mjs` every Monday (and on demand) and commits the
+   rebuilt snapshot to `main` **only when the model data actually changed**. GitHub
+   Pages redeploys automatically after each refresh.
+
+`build-catalog.mjs` is curated, not a raw popularity dump — HF's download ranking is
+full of no-name "…-Claude-Opus-Reasoning-Distilled / …-Uncensored" reposts. So it:
+
+- pulls across **workload + family** queries (coder, instruct, reasoning, gemma, phi,
+  mistral, llama, deepseek), restricted to **trusted publishers** (model authors +
+  canonical quantizers: bartowski, unsloth, lmstudio-community, …);
+- collapses each model to **one publisher** and a **representative quant ladder**
+  (Q2_K…Q8_0 + IQ4_XS), keeping the snapshot to ~50 distinct, current families;
+- **self-guards**: an empty fetch fails loudly and a big shrink is refused — a bad or
+  rate-limited run keeps the last-good snapshot instead of shipping a gutted one.
+
+The one hand-maintained knob is the trusted-publisher list at the top of the script.
+The refresh does **not** auto-publish to npm — that stays a deliberate release (**Cut
+release**), so npm consumers get catalog updates on the next version you cut.
 
 ## Status
 
